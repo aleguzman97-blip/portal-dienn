@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal DIENN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --ink:#14213d; --ink-2:#4a5672; --ink-3:#8790a5;
+    --canvas:#eceff3; --surface:#ffffff; --rule:#dde2ea; --rule-2:#eef1f5;
+    --nav:#14213d; --nav-ink:#b9c2d6; --accent:#2a55d0; --accent-soft:#e6ecfb;
+    --c-ext:#0f7b5f; --c-des:#2a55d0; --c-esp:#c48a12; --c-ins:#c2413a; --c-pen:#b3b9c6;
+    --ok:#0f7b5f; --warn:#a8720a; --bad:#c2413a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--canvas);color:var(--ink);font-size:14px;line-height:1.45;font-variant-numeric:tabular-nums}
+  button,input,select,textarea{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  a{color:var(--accent)}
+
+  /* Estructura */
+  .shell{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+  aside{background:var(--nav);color:var(--nav-ink);padding:22px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  aside .marca{color:#fff;font-weight:600;font-size:15px;padding:0 10px 2px}
+  aside .ciclo{font-size:12px;padding:0 10px 18px;color:var(--nav-ink)}
+  aside .grupo{font-size:12px;color:#7d89a6;padding:14px 10px 4px}
+  aside button.nav{all:unset;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:6px;color:var(--nav-ink)}
+  aside button.nav:hover{color:#fff;background:rgba(255,255,255,.06)}
+  aside button.nav.on{color:#fff;background:rgba(255,255,255,.11)}
+  aside button.nav .cnt{font-size:12px;color:#7d89a6}
+  aside .pie{margin-top:auto;padding-top:16px;font-size:12px;display:flex;flex-direction:column;gap:8px;padding-left:10px;padding-right:10px}
+  aside .pie .correo{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  aside .pie button{all:unset;cursor:pointer;color:#fff;background:rgba(255,255,255,.09);padding:8px 10px;border-radius:6px;text-align:center}
+  aside .pie button:hover{background:rgba(255,255,255,.16)}
+  #estadoGuardado{min-height:16px}
+  .demo{background:#fff4dc;color:#6d4a00;padding:9px 32px;font-size:13px;border-bottom:1px solid #f0dfb5}
+  main{padding:28px 32px 64px;max-width:1240px;width:100%}
+  @media(max-width:860px){.shell{grid-template-columns:1fr}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}aside .grupo,aside .ciclo{display:none}aside .pie{margin:0;flex-direction:row}main{padding:20px 16px 48px}}
+
+  h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px}
+  .sub{color:var(--ink-2);margin:0 0 24px}
+  h2{font-size:17px;font-weight:600;margin:0 0 4px}
+  h2 + .nota-h{color:var(--ink-3);font-size:13px;margin:0 0 14px}
+  .panel{background:var(--surface);border-radius:10px;padding:22px 24px;margin-bottom:18px;border:1px solid var(--rule)}
+
+  /* Indicadores: una sola franja dividida, no tarjetas sueltas */
+  .franja{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border:1px solid var(--rule);border-radius:10px;margin-bottom:18px}
+  .franja > div{padding:18px 22px;border-left:1px solid var(--rule)}
+  .franja > div:first-child{border-left:0}
+  .franja .v{font-size:32px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+  .franja .v small{font-size:16px;color:var(--ink-3);font-weight:500}
+  .franja .l{color:var(--ink-2);font-size:13px;margin-top:4px}
+  @media(max-width:860px){.franja{grid-template-columns:1fr 1fr}.franja > div:nth-child(3){border-left:0}.franja > div:nth-child(n+3){border-top:1px solid var(--rule)}}
+
+  /* Distribución por categoría */
+  .banda{display:flex;height:44px;border-radius:7px;overflow:hidden;background:var(--rule-2);gap:2px}
+  .banda > div{display:flex;align-items:center;padding:0 12px;color:#fff;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;min-width:0}
+  .cats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:16px}
+  .cats .k{display:flex;gap:10px;align-items:baseline}
+  .cats .sw{width:10px;height:10px;border-radius:2px;flex:none;transform:translateY(-1px)}
+  .cats .n{font-size:22px;font-weight:600}
+  .cats .t{color:var(--ink-2);font-size:13px}
+  .pend{color:var(--ink-3);font-size:13px;margin-top:12px}
+  @media(max-width:700px){.cats{grid-template-columns:1fr 1fr}}
+
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:12.5px;color:var(--ink-3);font-weight:500;padding:0 10px 10px;border-bottom:1px solid var(--rule)}
+  td{padding:12px 10px;border-bottom:1px solid var(--rule-2);vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  .num{text-align:right;white-space:nowrap}
+  tr.clic{cursor:pointer} tr.clic:hover td{background:#f7f9fc}
+  .quien{display:flex;gap:12px;align-items:center}
+  .quien b{font-weight:600;display:block}
+  .quien span{color:var(--ink-3);font-size:12.5px}
+
+  .cat{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;white-space:nowrap}
+  .cat::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--c-pen))}
+  .cat-Extraordinario{--c:var(--c-ext)}.cat-Destacado{--c:var(--c-des)}.cat-Esperado{--c:var(--c-esp)}.cat-Insuficiente{--c:var(--c-ins)}.cat-Pendiente,.cat-Sin{--c:var(--c-pen);color:var(--ink-3)}
+
+  /* Retratos */
+  .av{border-radius:50%;background:#d9dfe9 center/cover no-repeat;display:inline-flex;align-items:center;justify-content:center;font-weight:600;color:var(--ink-2);flex:none}
+  .av.s{width:34px;height:34px;font-size:12px}
+  .av.m{width:84px;height:84px;font-size:24px}
+  .av.l{width:120px;height:120px;font-size:34px}
+  .anillo{padding:3px;border-radius:50%;background:var(--c,var(--c-pen));display:inline-flex}
+  .anillo .av{border:3px solid var(--surface)}
+  .equipo{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:14px;margin-bottom:28px}
+  .tile{all:unset;cursor:pointer;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:20px 14px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+  .tile:hover{border-color:#b9c4d8}
+  .tile .nm{font-weight:600;margin-top:10px;line-height:1.25}
+  .tile .nv{color:var(--ink-3);font-size:12.5px}
+  .tile .st{font-size:12.5px;margin-top:6px}
+  .seccion{font-size:15px;font-weight:600;margin:4px 0 12px;display:flex;gap:10px;align-items:baseline}
+  .seccion span{color:var(--ink-3);font-weight:400;font-size:13px}
+
+  /* Perfil */
+  .perfil{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+  .perfil .foto{position:relative}
+  .perfil .foto button{position:absolute;right:-4px;bottom:-4px;background:var(--surface);border:1px solid var(--rule);border-radius:99px;font-size:12px;padding:4px 9px;cursor:pointer}
+  .perfil h1{margin:0}
+  .perfil .meta{color:var(--ink-2)}
+  .perfil .cifras{margin-left:auto;display:flex;gap:30px}
+  .perfil .cifras .v{font-size:30px;font-weight:600;letter-spacing:-.02em}
+  .perfil .cifras .l{color:var(--ink-2);font-size:13px}
+  .pestanas{display:flex;gap:24px;border-bottom:1px solid var(--rule);margin:22px 0 20px}
+  .pestanas button{all:unset;cursor:pointer;padding:10px 0;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .pestanas button.on{color:var(--ink);border-color:var(--ink);font-weight:600}
+  .pestanas .der{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+  .rubro{display:grid;grid-template-columns:minmax(180px,1.3fr) 2fr 112px;gap:6px 18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule-2)}
+  .rubro:last-child{border-bottom:0}
+  .rubro .nm{font-weight:500}
+  .rubro .nm span{display:block;color:var(--ink-3);font-size:12.5px;font-weight:400}
+  .barras{display:flex;flex-direction:column;gap:5px}
+  .track{position:relative;height:8px;border-radius:4px;background:var(--rule-2)}
+  .track i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+  .track .meta{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink-3);border-radius:1px}
+  .rubro .vals{text-align:right;font-size:13px;color:var(--ink-2)}
+  .rubro .vals b{color:var(--ink);font-size:15px}
+  .leyenda{display:flex;gap:18px;font-size:12.5px;color:var(--ink-2);margin-bottom:6px;flex-wrap:wrap}
+  .leyenda i{display:inline-block;width:14px;height:6px;border-radius:3px;margin-right:6px;vertical-align:2px}
+  .dos{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.dos{grid-template-columns:1fr}.perfil .cifras{margin-left:0}}
+  .lista-fo li{margin:0 0 8px} .lista-fo{padding-left:18px;margin:0}
+  .txt{white-space:pre-wrap;line-height:1.55}
+  .qa{margin-bottom:18px} .qa b{display:block;font-weight:600;margin-bottom:3px}
+  .vacio{color:var(--ink-3)}
+
+  /* Formulario de evaluación */
+  .obj{border-top:1px solid var(--rule);padding:22px 0}
+  .obj:first-child{border-top:0;padding-top:4px}
+  .obj-h{display:flex;justify-content:space-between;gap:16px;align-items:baseline;flex-wrap:wrap}
+  .obj-h .t{font-weight:600;font-size:15px}
+  .obj-h .t span{display:block;font-weight:400;color:var(--ink-3);font-size:12.5px;margin-top:2px}
+  .obj-h .pp{color:var(--ink-2);font-size:13px;white-space:nowrap}
+  .obj-cols{display:grid;grid-template-columns:1.3fr 1fr;gap:24px;margin-top:12px}
+  .obj-cols > div:last-child{position:sticky;top:20px;align-self:start}
+  @media(max-width:900px){.obj-cols{grid-template-columns:1fr}.obj-cols > div:last-child{position:static}}
+  .auto{background:#f6f8fb;border-radius:8px;padding:14px 16px;font-size:13px}
+  .auto table td,.auto table th{font-size:12.5px;padding:7px 6px}
+  .auto .ttl{color:var(--ink-3);font-size:12.5px;margin:12px 0 4px}
+  .auto .ttl:first-child{margin-top:0}
+  label.f{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--ink-2);margin:14px 0 6px}
+  label.f:first-child{margin-top:0}
+  input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{border:1px solid #cbd2de;border-radius:7px;padding:9px 11px;background:#fff;width:100%}
+  textarea{min-height:84px;resize:vertical;line-height:1.5}
+  input.nota{width:96px;font-size:20px;font-weight:600;text-align:right;padding:6px 10px}
+  .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .mic{all:unset;cursor:pointer;font-size:12.5px;color:var(--accent);padding:2px 6px;border-radius:5px}
+  .mic:hover{background:var(--accent-soft)}
+  .mic.rec{background:var(--bad);color:#fff}
+  .req{font-size:13px} .req ul{list-style:none;padding:0;margin:4px 0 14px} .req li{margin:3px 0;padding-left:20px;position:relative}
+  .req li::before{position:absolute;left:0;font-weight:700}
+  .req li.ok::before{content:"✓";color:var(--ok)} .req li.no::before{content:"–";color:var(--ink-3)} .req li.no{color:var(--ink-2)}
+  .elegir{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .elegir button{all:unset;cursor:pointer;text-align:center;padding:11px 6px;border-radius:8px;border:1.5px solid var(--rule);background:#fff;font-weight:500;font-size:13.5px}
+  .elegir button:hover{border-color:var(--c)}
+  .elegir button.on{background:var(--c);border-color:var(--c);color:#fff}
+  @media(max-width:600px){.elegir{grid-template-columns:1fr 1fr}}
+  .pill-na{display:inline-block;font-size:12px;color:var(--ink-2);background:var(--rule-2);border-radius:5px;padding:2px 8px}
+  .chk{width:18px;height:18px;accent-color:var(--ink);cursor:pointer}
+  .ia-estado{font-size:12.5px;color:var(--ink-3);margin-top:6px;min-height:16px}
+  .matriz{overflow-x:auto;margin:0 -4px}
+  .matriz table{min-width:640px}
+  .matriz th.p{text-align:center;padding:0 4px 10px;min-width:74px;font-size:12px;line-height:1.25;color:var(--ink-2)}
+  .matriz td.v{text-align:center;padding:9px 4px;font-weight:600;font-size:13px}
+  .matriz td.v span{display:block;border-radius:6px;padding:6px 0}
+  .matriz td.prom{text-align:center;color:var(--ink-2);font-size:13px;border-left:1px solid var(--rule)}
+  .matriz tr.total td{border-top:1px solid var(--rule);font-weight:600}
+  .matriz tr.catfila td{border-bottom:0;padding-top:4px}
+  .matriz .catpill{display:block;border-radius:6px;padding:6px 2px;color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .matriz .catpill.vacia{background:var(--rule-2);color:var(--ink-3);font-weight:500}
+  .toggle{display:inline-flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+  .toggle button{all:unset;cursor:pointer;padding:6px 12px;font-size:13px;color:var(--ink-2)}
+  .toggle button.on{background:var(--ink);color:#fff}
+  .sug{display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:15px}
+  .btn{all:unset;cursor:pointer;background:var(--ink);color:#fff;border-radius:7px;padding:10px 16px;font-weight:500;display:inline-block}
+  .btn:hover{background:#22325a}
+  .btn.sec{background:var(--surface);color:var(--ink);border:1px solid #cbd2de;padding:9px 15px}
+  .btn.peligro{background:transparent;color:var(--bad);padding:9px 0}
+  .btn[aria-disabled=true]{opacity:.5;pointer-events:none}
+  .aviso{display:inline-block;font-size:12.5px;padding:3px 9px;border-radius:5px;margin:3px 6px 3px 0;background:#fff2d6;color:#7a5200}
+  .aviso.ok{background:#e1f2ec;color:var(--ok)} .aviso.bad{background:#fbe3e1;color:var(--bad)}
+  #drop{border:1.5px dashed #9fb0d0;border-radius:10px;background:var(--surface);padding:40px;text-align:center;cursor:pointer}
+  #drop.over{background:var(--accent-soft);border-color:var(--accent)}
+  .centro{max-width:400px;margin:12vh auto;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:32px}
+  .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
+  details summary{cursor:pointer;color:var(--accent);margin-top:10px;font-size:13px}
+  .mejor{color:var(--ok);font-size:12.5px;font-weight:500} .peor{color:var(--bad);font-size:12.5px;font-weight:500}
+
+
+  /* Vacaciones */
+  :root{--vac:#1d8a73}
+  .shell > div{min-width:0}
+  .modal .toggle{margin-bottom:2px}
+  @media(max-width:860px){aside{overflow-x:auto}}
+  .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px;margin-bottom:18px}
+  .vcard{position:relative;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 16px 14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;text-align:left}
+  .vcard:hover{border-color:#b8c3d6;box-shadow:0 2px 10px rgba(20,33,61,.06)}
+  .vc-top{display:flex;gap:10px;align-items:center} .vc-top b{display:block;font-weight:600;line-height:1.25} .vc-top span:not(.av){font-size:12px;color:var(--ink-3)}
+  .vc-num{display:flex;align-items:baseline;gap:8px;margin-top:6px} .vc-num b{font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1} .vc-num span{color:var(--ink-2);font-size:13px}
+  .vc-num.neg b,.vresumen b.neg{color:var(--bad)}
+  .vc-bar{height:6px;border-radius:3px;background:#d7eee8;overflow:hidden} .vc-bar i{display:block;height:100%;background:#e0a73a;border-radius:3px}
+  .vc-meta{font-size:12.5px;color:var(--ink-2)} .vc-meta b{color:var(--ink)}
+  .vc-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
+  .vc-pie{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid var(--rule-2);font-size:12px;color:var(--ink-3)}
+  .vc-btn{all:unset;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--accent);padding:4px 9px;border-radius:5px;background:var(--accent-soft)}
+  .vc-btn:hover{background:#d5e0fa}
+  .vcard.vadd{align-items:center;justify-content:center;color:var(--ink-3);border-style:dashed;min-height:150px;font:inherit;font-size:13px} .vcard.vadd span{font-size:26px;line-height:1}
+  .vtag{display:inline-block;font-size:11.5px;padding:2px 7px;border-radius:5px;background:var(--rule-2);color:var(--ink-2)}
+  .vtag.ok{background:#e1f2ec;color:var(--ok)} .vtag.bad{background:#fbe3e1;color:var(--bad)} .vtag.warn{background:#fff2d6;color:#7a5200} .vtag.info{background:var(--accent-soft);color:var(--accent)}
+  .vprox{padding:16px 20px} .vprox h2{font-size:14px;margin-bottom:10px}
+  .vprox-l{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+  .vchip{all:unset;cursor:pointer;flex:none;border:1px solid var(--rule);border-radius:8px;padding:7px 11px;display:flex;flex-direction:column;font-size:12.5px} .vchip span{color:var(--ink-3)} .vchip:hover{border-color:#b8c3d6}
+  .vnav{gap:6px} .vnav button{all:unset;cursor:pointer;width:28px;height:28px;border-radius:6px;text-align:center;line-height:28px;border:1px solid var(--rule);font-size:16px}
+  .vnav button.hoy{width:auto;padding:0 10px;font-size:12.5px} .vnav b{min-width:130px;text-align:center;text-transform:capitalize;font-weight:600}
+  .leyenda .sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+  .sw.rayas,.vcal td.v.est{background:repeating-linear-gradient(135deg,var(--vac) 0 3px,#a9d9cd 3px 6px)!important}
+  .vcal-wrap{overflow-x:auto}
+  .vcal{border-collapse:separate;border-spacing:0;width:auto;min-width:100%}
+  .vcal th,.vcal td{padding:0;border:0;width:26px;min-width:26px;height:26px;text-align:center;font-size:11.5px;border-bottom:1px solid #fff;border-right:1px solid #fff}
+  .vcal th{color:var(--ink-2);font-weight:600;vertical-align:bottom;padding-bottom:4px} .vcal th span{display:block;font-weight:400;color:var(--ink-3);font-size:10.5px}
+  .vcal .n{width:auto;min-width:170px;text-align:left;padding-right:12px;white-space:nowrap;font-size:13px;position:sticky;left:0;background:var(--surface);z-index:1}
+  .vcal .n a{color:var(--ink);text-decoration:none} .vcal .n a:hover{color:var(--accent)}
+  .vcal tbody td{background:#fafbfc} .vcal tbody td.fs{background:#f1f3f6} .vcal tbody td.fer{background:#e3e6ec}
+  .vcal tbody td.v{background:var(--vac);cursor:pointer}
+  .vcal th.hoy{color:var(--accent)} .vcal td.hoy{box-shadow:inset 1px 0 var(--accent),inset -1px 0 var(--accent)}
+  .vcal tbody tr:hover td.n a{color:var(--accent)}
+  .vcal tfoot td{font-weight:600;color:var(--vac);padding-top:6px;background:transparent} .vcal tfoot td.n{color:var(--ink-2);font-weight:500;font-size:12.5px}
+  .velo{position:fixed;inset:0;background:rgba(20,33,61,.38);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow-y:auto}
+  .modal{position:relative;background:var(--surface);border-radius:12px;padding:26px 26px 22px;width:100%;box-shadow:0 20px 50px rgba(20,33,61,.25)}
+  .modal h2{font-size:19px;margin-bottom:6px;padding-right:30px}
+  .modal .x{all:unset;cursor:pointer;position:absolute;top:14px;right:16px;font-size:24px;line-height:1;color:var(--ink-3)}
+  .modal input[type=date]{border:1px solid #cbd2de;border-radius:7px;padding:8px 10px;background:#fff;width:100%}
+  .vinfo{margin-top:14px;display:flex;flex-direction:column;gap:6px;font-size:13.5px} .vinfo:empty{display:none}
+  .vinfo .vbig{font-size:22px;font-weight:600;color:var(--vac)}
+  .vresumen{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--rule);border-radius:9px;margin-top:10px}
+  .vresumen > div{padding:10px 12px;border-left:1px solid var(--rule)} .vresumen > div:first-child{border-left:0}
+  .vresumen b{display:block;font-size:22px;font-weight:600} .vresumen span{font-size:12px;color:var(--ink-3)}
+  .vmov td{padding:8px 8px;font-size:13px;vertical-align:middle} .vmov th{padding:0 8px 8px}
+  .vmov td.mas{color:var(--ok)} .vmov td.menos{color:var(--ink)} .vmov tr.fut td{color:var(--ink-3)}
+  .vmov tr.tot td{font-weight:600;border-top:1px solid var(--rule)}
+  @media(max-width:600px){.vresumen{grid-template-columns:1fr 1fr}.vresumen > div:nth-child(3){border-left:0}.modal{padding:22px 18px}}
+  @media print{
+    aside,.demo,.pestanas,.no-print,.perfil .foto button{display:none!important}
+    .shell{display:block} main{padding:0;max-width:none} body{background:#fff}
+    .panel{border:0;padding:12px 0;break-inside:avoid}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  .vacceso{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)}
+  .vcred{margin-top:12px;background:#f3f8f6;border:1px solid #cfe6dd;border-radius:9px;padding:12px 14px;font-size:13px}
+  .vcred pre{white-space:pre-wrap;font:inherit;background:#fff;border:1px solid var(--rule);border-radius:7px;padding:10px 12px;margin:8px 0 10px}
+  .vadm td{vertical-align:middle;font-size:13.5px} .vadm tr.inact td{color:var(--ink-3)}
+  .org,.org ul{list-style:none;margin:0;padding:0} .org ul{margin-left:22px;padding-left:16px;border-left:1px solid var(--rule)}
+  .org li{margin:6px 0}
+  .onodo{all:unset;cursor:pointer;display:inline-flex;gap:10px;align-items:center;padding:6px 12px 6px 6px;border:1px solid var(--rule);border-radius:9px;background:var(--surface)}
+  .onodo:hover{border-color:#b8c3d6} .onodo b{display:block;font-weight:500;font-size:13.5px} .onodo small{color:var(--ink-3);font-size:12px}
+  .modal input[type=email]{width:100%}
+  /* Estructura */
+  .ocwrap{overflow:auto;max-height:78vh;padding:4px 0 10px}
+  .oc{display:inline-block;min-width:100%}
+  .oc ul{display:flex;justify-content:center;padding:18px 0 0;margin:0;position:relative}
+  .oc > ul{padding-top:0}
+  .oc li{list-style:none;position:relative;padding:18px 5px 0;display:flex;flex-direction:column;align-items:center}
+  .oc > ul > li{padding-top:0}
+  .oc li::before,.oc li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:18px;border-top:1.5px solid #9aa6bd}
+  .oc li::after{right:auto;left:50%;border-left:1.5px solid #9aa6bd}
+  .oc li:only-child::before,.oc li:only-child::after{display:none}
+  .oc li:only-child{padding-top:18px}
+  .oc li:only-child::after{display:block;border-top:0;width:0;left:50%}
+  .oc > ul > li:only-child{padding-top:0} .oc > ul > li:only-child::after{display:none}
+  .oc li:first-child::before,.oc li:last-child::after{border:0}
+  .oc li:last-child::before{border-right:1.5px solid #9aa6bd;border-radius:0 6px 0 0}
+  .oc li:first-child::after{border-radius:6px 0 0 0}
+  .oc ul ul::before{content:"";position:absolute;top:0;left:50%;height:18px;border-left:1.5px solid #9aa6bd}
+  .ocb{all:unset;cursor:pointer;box-sizing:border-box;width:158px;min-height:62px;background:#fff;border:1.5px solid #c9d1df;border-top:4px solid var(--nc);border-radius:8px;padding:8px 9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center}
+  .ocb:hover{box-shadow:0 3px 12px rgba(20,33,61,.12)}
+  .ocb .ocn{font-weight:600;font-size:12.5px;line-height:1.25} .ocb .occ{font-size:11px;color:var(--ink-2);line-height:1.25}
+  .ocb.vac{border-style:dashed;border-top-style:solid;background:#fafbfc} .ocb.vac .ocn{font-style:italic;color:var(--ink-2)}
+  .ocb.aus{background:#fffaf0;border-color:#efd9a6}
+  .ocb.int{background:#f3f6fd;border-color:#b9c8ee}
+  .ocb .ocint{font-size:10.5px;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 6px;margin-top:3px;line-height:1.3}
+  .ocb .ocaus{font-size:10.5px;color:#7a5200;background:#fff2d6;border-radius:5px;padding:2px 6px;margin-top:3px;line-height:1.3}
+  .ocb .vtag{font-size:10.5px;margin-top:3px}
+  .pila{display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:9px;background:#f4f6f9}
+  .pila-t{font-size:11px;color:var(--ink-3);text-align:center}
+  /* Proyectos */
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .pcard{background:var(--surface);border:1px solid var(--rule);border-top:4px solid var(--pc);border-radius:10px;padding:16px 16px 10px}
+  .pc-h{display:flex;justify-content:space-between;gap:10px;align-items:flex-start} .pc-h b{display:block;font-size:15px;font-weight:600} .pc-h span{display:block;font-size:12.5px;color:var(--ink-3);margin-top:2px}
+  .pc-n{font-size:12px;color:var(--ink-3);margin:8px 0 4px}
+  .pc-m{list-style:none;margin:0;padding:0} .pc-m li{display:flex;gap:9px;align-items:center;padding:7px 0;border-top:1px solid var(--rule-2)}
+  .pc-m li > span:nth-child(2){flex:1;min-width:0} .pc-m b{display:block;font-weight:500;font-size:13px} .pc-m small{display:block;font-size:11.5px;color:var(--ink-3)} .pc-m small.aus{color:#7a5200}
+  .pcard.padd{all:unset;cursor:pointer;box-sizing:border-box;border:1.5px dashed var(--rule);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink-3);min-height:140px;font-size:13px} .pcard.padd span{font-size:26px}
+  .pchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:12px;background:var(--rule-2);margin:2px 2px 2px 0} .pchip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--pc)}
+  .csw{all:unset;cursor:pointer;width:24px;height:24px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--rule)} .csw.on{box-shadow:0 0 0 2px var(--ink)}
+  .modal select{width:100%}
+  .vhist{margin-top:14px} .vhist summary{font-size:13px} .vhist-c{margin-top:8px;max-height:280px;overflow:auto} .vhist td{font-size:12.5px}
+  @media(max-width:600px){.vcal .n{min-width:112px;font-size:12px;white-space:normal}.vacceso{flex-direction:column;align-items:flex-start}}
+</style>
+
+</head>
+<body>
+<div id="app"><div class="centro" style="color:var(--ink-3)">Cargando…</div></div>
+<script>
+/* =====================================================================
+   PORTAL DE GESTIÓN · Vacaciones
+   Proyecto de Supabase APARTE del de evaluaciones: aquí no existen evaluaciones.
+   ===================================================================== */
+const CONFIG = {
+  SUPABASE_URL: "https://nrdtivqcwoaojjkxapat.supabase.co",   // Project URL del proyecto NUEVO del portal
+  SUPABASE_KEY: "sb_publishable_v0GZCmNDZ7N0NOM51bvwXg_x9QtsIHL",   // llave publishable de ese proyecto (NUNCA la "secret")
+  NOMBRE: "Portal DIENN"
+};
+
+/* ---------- Utilidades ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const limpiar = t => String(t == null ? "" : t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+const texto = v => String(v == null ? "" : v).replace(/\r/g, "").trim();
+const num = v => { if (typeof v === "number") return isFinite(v) ? v : null; const s = String(v == null ? "" : v).replace(",", ".").trim(); if (!s) return null; const n = Number(s); return isNaN(n) ? null : n; };
+const iniciales = n => texto(n).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
+const primerNombre = n => texto(n).split(/\s+/)[0] || "";
+const filasDe = ws => XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+function uuid() { const b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128; const h = [...b].map(x => x.toString(16).padStart(2, "0")).join(""); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`; }
+const nid = uuid;
+function mensajeError(e) {
+  const m = (e && (e.message || e.error_description || e.error)) || String(e);
+  if (/duplicate key|unique/i.test(m)) return /correo/i.test(m) ? "ese correo ya está asignado a otra persona" : "ya existe un registro igual";
+  if (/row-level security|permission denied/i.test(m)) return "no tienes permiso para hacer eso";
+  if (/should be different/i.test(m)) return "La clave nueva debe ser distinta a la anterior.";
+  if (/password.*(weak|at least|short)/i.test(m)) return "Esa clave es muy débil. Usa al menos 8 caracteres, combinando letras y números.";
+  if (/invalid login|credentials/i.test(m)) return "correo o clave incorrectos";
+  if (/fetch/i.test(m)) return "sin conexión con el portal. Revisa tu internet";
+  if (/relation .* does not exist|could not find|schema cache/i.test(m)) return "falta ejecutar el script SQL del portal en Supabase";
+  return m;
+}
+function estado(t, err) { const el = $("estadoGuardado"); if (el) { el.textContent = t; el.style.color = err ? "#ffb4ad" : ""; } }
+const ok = async pr => { const { data, error } = await pr; if (error) throw error; return data; };
+
+/* =====================================================================
+   15. VACACIONES
+   Se guarda en equipos.config.vac (misma fila y misma seguridad que tu equipo:
+   solo tú lo ves). Saldos en días hábiles; feriados de Venezuela calculados solos.
+   ===================================================================== */
+const VAC_REGLAS = { base: 15, inc: 1, tope: 30 };   // LOTTT art. 190
+let VAC = null;
+const pad2 = n => String(n).padStart(2, "0");
+const dISO = d => d.toISOString().slice(0, 10);
+const dDe = s => { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); };
+const dSum = (s, n) => { const d = dDe(s); d.setUTCDate(d.getUTCDate() + n); return dISO(d); };
+const dHoy = () => { const n = new Date(); return `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`; };
+const dDow = s => dDe(s).getUTCDay();
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const MES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const DIAS_C = ["D", "L", "M", "M", "J", "V", "S"];
+const dTxt = (s, anio = true) => s ? `${+s.slice(8)} ${MES_C[+s.slice(5, 7) - 1]}${anio ? " " + s.slice(0, 4) : ""}` : "—";
+const rangoTxt = (a, b) => a === b ? dTxt(a) : a.slice(0, 7) === b.slice(0, 7) ? `${+a.slice(8)} al ${dTxt(b)}` : `${dTxt(a, a.slice(0, 4) !== b.slice(0, 4))} al ${dTxt(b)}`;
+const bisiesto = y => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+function serialISO(v) {
+  if (typeof v === "number" && v > 20000 && v < 80000) { const o = XLSX.SSF.parse_date_code(v); return `${o.y}-${pad2(o.m)}-${pad2(o.d)}`; }
+  const m = String(v == null ? "" : v).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (!m) return "";
+  let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += y < 50 ? 2000 : 1900;
+  const [d, mo] = a > 12 ? [a, b] : b > 12 ? [b, a] : [a, b];
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${pad2(mo)}-${pad2(d)}` : "";
+}
+
+/* ---------- Feriados nacionales de Venezuela (LOTTT art. 184) ---------- */
+function pascua(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${y}-${pad2(mes)}-${pad2(dia)}`;
+}
+const FERIADOS_FIJOS = [["01-01", "Año Nuevo"], ["04-19", "Declaración de la Independencia"], ["05-01", "Día del Trabajador"], ["06-24", "Batalla de Carabobo"], ["07-05", "Día de la Independencia"], ["07-24", "Natalicio del Libertador"], ["10-12", "Día de la Resistencia Indígena"], ["12-24", "Nochebuena"], ["12-25", "Navidad"], ["12-31", "Fin de Año"]];
+function feriadosDe(y) {
+  const e = pascua(y);
+  const l = FERIADOS_FIJOS.map(([md, n]) => ({ fecha: `${y}-${md}`, nombre: n, fijo: true }))
+    .concat([[-48, "Lunes de Carnaval"], [-47, "Martes de Carnaval"], [-3, "Jueves Santo"], [-2, "Viernes Santo"]].map(([k, n]) => ({ fecha: dSum(e, k), nombre: n, fijo: true })))
+    .concat(((VAC && VAC.feriadosExtra) || []).filter(f => f.fecha.startsWith(y + "-")).map(f => ({ ...f, fijo: false })));
+  return l.sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+let _fer = { clave: null, mapa: null };
+function FER() {
+  const clave = JSON.stringify((VAC && VAC.feriadosExtra) || []);
+  if (_fer.clave !== clave) { const mapa = new Map(); for (let y = 2015; y <= 2045; y++) feriadosDe(y).forEach(f => mapa.set(f.fecha, f.nombre)); _fer = { clave, mapa }; }
+  return _fer.mapa;
+}
+const habil = s => { const w = dDow(s); return w !== 0 && w !== 6 && !FER().has(s); };
+function diasHabiles(a, b) { if (!a || !b || b < a) return 0; let n = 0; for (let s = a; s <= b; s = dSum(s, 1)) if (habil(s)) n++; return n; }
+function feriadosEntre(a, b) { const out = []; if (!a || !b || b < a) return out; for (let s = a; s <= b; s = dSum(s, 1)) { const w = dDow(s); if (w !== 0 && w !== 6 && FER().has(s)) out.push(`${dTxt(s, false)} (${FER().get(s)})`); } return out; }
+function bloqueHabil(desde, n) { let s = desde; while (!habil(s)) s = dSum(s, 1); const ini = s; let c = 1; while (c < n) { s = dSum(s, 1); if (habil(s)) c++; } return [ini, s]; }
+
+/* ---------- Cálculo de saldos ---------- */
+const diasPorAnio = (p, n) => Math.min(VAC.reglas.base + Math.max(0, n + (num(p.extra) || 0) - 1) * VAC.reglas.inc, VAC.reglas.tope);
+function aniversario(p, y) { const md = p.ingreso.slice(5); return md === "02-29" && !bisiesto(y) ? `${y}-03-01` : `${y}-${md}`; }
+function aniosServicio(p, hoy) { if (!p.ingreso || p.ingreso > hoy) return 0; const y0 = +p.ingreso.slice(0, 4); let n = +hoy.slice(0, 4) - y0; if (aniversario(p, +hoy.slice(0, 4)) > hoy) n--; return Math.max(0, n); }
+function saldoAl(p, d, excluir) {
+  const corte = p.corte || "1900-01-01"; let s = num(p.saldo) || 0;
+  if (p.ingreso && p.activo !== false) { const y0 = +p.ingreso.slice(0, 4); for (let y = Math.max(y0 + 1, +corte.slice(0, 4)); y <= +d.slice(0, 4); y++) { const a = aniversario(p, y); if (a > corte && a <= d) s += diasPorAnio(p, y - y0); } }
+  VAC.registros.forEach(r => { if (r.pid !== p.id || r.id === excluir || r.desde > d) return; if (r.tipo === "ajuste") s += num(r.dias) || 0; else if (r.desde > corte) s -= diasHabiles(r.desde, r.hasta); });
+  return s;
+}
+function cuentaVac(p, hoy = dHoy()) {
+  const corte = p.corte || "1900-01-01";
+  const regs = VAC.registros.filter(r => r.pid === p.id);
+  const vac = regs.filter(r => r.tipo !== "ajuste").map(r => ({ ...r, n: diasHabiles(r.desde, r.hasta) })).sort((a, b) => a.desde.localeCompare(b.desde));
+  const ajustes = regs.filter(r => r.tipo === "ajuste").sort((a, b) => a.desde.localeCompare(b.desde));
+  const abonos = [];
+  if (p.ingreso && p.activo !== false) {
+    const y0 = +p.ingreso.slice(0, 4);
+    for (let y = Math.max(y0 + 1, +corte.slice(0, 4)); y <= +hoy.slice(0, 4); y++) { const a = aniversario(p, y); if (a > corte && a <= hoy) abonos.push({ fecha: a, dias: diasPorAnio(p, y - y0) }); }
+  }
+  const tomadas = vac.filter(r => r.desde > corte && r.desde <= hoy), planificadas = vac.filter(r => r.desde > hoy);
+  const suma = (l, f) => l.reduce((s, x) => s + (f(x) || 0), 0);
+  const ajusteHoy = suma(ajustes.filter(r => r.desde <= hoy), r => num(r.dias));
+  const saldo = (num(p.saldo) || 0) + suma(abonos, a => a.dias) + ajusteHoy - suma(tomadas, r => r.n);
+  const plan = suma(planificadas, r => r.n);
+  let prox = null;
+  if (p.ingreso && p.ingreso <= hoy) { const y0 = +p.ingreso.slice(0, 4); let y = +hoy.slice(0, 4); if (aniversario(p, y) <= hoy) y++; prox = { fecha: aniversario(p, y), dias: diasPorAnio(p, y - y0) }; }
+  const anios = aniosServicio(p, hoy), anual = p.ingreso ? diasPorAnio(p, Math.max(1, anios)) : VAC.reglas.base;
+  const fuera = vac.find(r => r.desde <= hoy && r.hasta >= hoy);
+  const alertas = [];
+  if (!p.ingreso) alertas.push(["bad", "Falta fecha de ingreso"]);
+  const finPlan = planificadas.reduce((m, r) => r.hasta > m ? r.hasta : m, hoy);
+  if (saldo - plan < 0 && saldoAl(p, finPlan) < 0) alertas.push(["bad", "Planificó más días de los que tiene"]);
+  else if (saldo > 2 * anual) alertas.push(["warn", "Acumula más de 2 años"]);
+  const porConfirmar = vac.filter(r => r.estimado && r.hasta >= hoy).length;
+  return { porConfirmar, saldo, plan, despues: saldo - plan, abonos, tomadas, planificadas, ajustes, vac, prox, anios, anual, fuera, alertas, corte };
+}
+const nDias = n => `${n.toLocaleString("es-VE")} ${Math.abs(n) === 1 ? "día" : "días"}`;
+const personaVac = id => VAC.personas.find(p => p.id === id);
+
+/* ---------- Ventana emergente ---------- */
+function cerrarModal() { document.querySelectorAll(".velo").forEach(v => v.remove()); document.removeEventListener("keydown", escModal); }
+function escModal(e) { if (e.key === "Escape") cerrarModal(); }
+function modal(html, ancho = 520) {
+  cerrarModal();
+  const d = document.createElement("div"); d.className = "velo";
+  d.innerHTML = `<div class="modal" role="dialog" aria-modal="true" style="max-width:${ancho}px"><button class="x" aria-label="Cerrar">×</button>${html}</div>`;
+  document.body.appendChild(d);
+  d.onclick = e => { if (e.target === d || e.target.classList.contains("x")) cerrarModal(); };
+  document.addEventListener("keydown", escModal);
+  return d.firstChild;
+}
+const VV = { mes: null };
+function tarjetaVac({ p, c }) {
+  const pos = Math.max(0, c.saldo), planW = pos ? Math.min(100, c.plan / pos * 100) : (c.plan ? 100 : 0);
+  const estadoHoy = c.fuera ? `<span class="vtag ok">De vacaciones hasta el ${dTxt(c.fuera.hasta, false)}</span>` : "";
+  const al = c.alertas.map(([t, x]) => `<span class="vtag ${t}">${esc(x)}</span>`).join("");
+  return `<div class="vcard" data-vp="${p.id}" role="button" tabindex="0">
+    <div class="vc-top"><span class="av s">${esc(iniciales(p.nombre))}</span><div><b>${esc(p.nombre)}</b><span>${p.ingreso ? `${c.anios} ${c.anios === 1 ? "año" : "años"} · ${c.anual} días por año` : "Sin fecha de ingreso"}</span></div></div>
+    <div class="vc-num ${c.saldo < 0 ? "neg" : ""}"><b>${c.saldo.toLocaleString("es-VE")}</b><span>${Math.abs(c.saldo) === 1 ? "día disponible" : "días disponibles"}</span></div>
+    <div class="vc-bar" title="${c.plan ? nDias(c.plan) + " ya planificados" : "Nada planificado"}"><i style="width:${planW}%"></i></div>
+    <div class="vc-meta">${c.plan ? `${nDias(c.plan)} planificados → quedan <b>${c.despues.toLocaleString("es-VE")}</b>` : "Nada planificado"}</div>
+    <div class="vc-meta">${c.prox ? `Aniversario ${dTxt(c.prox.fecha, false)}: <b>+${c.prox.dias}</b>` : "&nbsp;"}</div>
+    ${estadoHoy || al ? `<div class="vc-tags">${estadoHoy}${al}</div>` : ""}
+    <div class="vc-pie no-print">${c.porConfirmar ? `<span title="Vienen del Excel semanal: ábrela para ajustar las fechas">${c.porConfirmar} por confirmar</span>` : "<span></span>"}<button class="vc-btn" data-vreg="${p.id}">+ Registrar</button></div>
+  </div>`;
+}
+function prepararDrop(drop, input, fn) {
+  drop.onclick = () => input.click();
+  drop.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } };
+  input.onchange = () => input.files[0] && fn(input.files[0]);
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) fn(f); };
+}
+
+/* ---------- Calendario del mes ---------- */
+function leerVacExcel(R, hoy) {
+  const h = R.findIndex(r => (r || []).some(x => limpiar(x) === "nombre"));
+  if (h < 0) return null;
+  const H = R[h], cNom = H.findIndex(x => limpiar(x) === "nombre"), cIng = H.findIndex(x => limpiar(x).includes("ingreso")), cIni = H.findIndex(x => limpiar(x).includes("pendiente"));
+  const sem = []; H.forEach((x, j) => { if (j !== cIng && j !== cNom) { const s = serialISO(x); if (s) sem.push({ j, s }); } });
+  if (sem.length < 4) return null;
+  sem.sort((a, b) => a.s.localeCompare(b.s));
+  let wi = -1; sem.forEach((w, i) => { if (dSum(w.s, 6) < hoy) wi = i; });
+  const corte = wi >= 0 ? dSum(sem[wi].s, 6) : dSum(sem[0].s, -1);
+  const R0 = VAC.reglas, personas = [], registros = [];
+  for (let i = h + 1; i < R.length; i++) {
+    const r = R[i] || [], nom = texto(r[cNom]).replace(/\s+/g, " ");
+    if (!nom || num(nom) != null || /^total/i.test(nom)) continue;
+    const abo = R[i + 1] || [], sal = R[i + 2] || [];
+    const ingreso = cIng >= 0 ? serialISO(r[cIng]) : "", ini = cIni >= 0 ? num(r[cIni]) : null;
+    const saldo = wi >= 0 ? (num(sal[sem[wi].j]) ?? 0) : (ini ?? 0);
+    const notas = [];
+    let extra = 0;
+    if (ingreso) for (let k = wi; k >= 0; k--) {
+      const v = num(abo[sem[k].j]); if (!(v > 0)) continue;
+      const n = +sem[k].s.slice(0, 4) - +ingreso.slice(0, 4), regla = Math.min(R0.base + Math.max(0, n - 1) * R0.inc, R0.tope);
+      if (n >= 1 && v < R0.tope && v !== regla && Math.abs(v - regla) <= 5) { extra = v - regla; notas.push(`Su último aniversario recibió ${v} días y la ley da ${regla}: se le reconoce ${extra > 0 ? "+" : ""}${extra} año(s) para que calce. Confírmalo con RRHH.`); }
+      break;
+    }
+    if (!ingreso) notas.push("El Excel no tenía fecha de ingreso: complétala para que sume sus aniversarios.");
+    if (ini > 0 && !saldo && sem.every(w => !num(sal[w.j]))) notas.push(`El Excel indicaba ${ini} días pendientes al inicio, pero su saldo estaba en 0. Revísalo.`);
+    const p = { id: nid(), nombre: nom, ingreso, extra, saldo, corte, activo: true, nota: notas.join(" ") };
+    personas.push(p);
+    for (let k = wi + 1; k < sem.length; k++) {
+      const v = num(r[sem[k].j]); if (!(v > 0)) continue;
+      const [a, b] = bloqueHabil(sem[k].s, Math.round(v));
+      registros.push({ id: nid(), pid: p.id, tipo: "vac", desde: a, hasta: b, comentario: "Venía del Excel semanal (semana del " + dTxt(sem[k].s) + ")", estimado: true });
+    }
+    i += 2;
+  }
+  return personas.length ? { personas, registros, corte } : null;
+}
+
+/* =====================================================================
+   MÓDULO EQUIPO: estructura (puestos y vacantes), proyectos y suplencias
+   ===================================================================== */
+let DIR = [], NIVELES = [], PUESTOS = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
+const EQ = { fecha: null, zoom: null, modo: "proyecto" };
+const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
+const COLORES_PROY = ["#2a55d0", "#0f7b5f", "#c48a12", "#c2413a", "#7b4bc2", "#1d8a73", "#d0662a", "#4a5672"];
+const ROLES = ["Líder", "Co-líder", "Miembro"];
+const nivel = id => NIVELES.find(n => n.id === id);
+const dirDe = pid => DIR.find(d => d.id === pid);
+const cargoDe = d => d ? [d.cargo, d.encargado_de ? "encargado/a de " + d.encargado_de : ""].filter(Boolean).join(" · ") : "";
+const nombreDe = pid => (dirDe(pid) || personaVac(pid) || {}).nombre || "—";
+const puestoDe = pid => PUESTOS.find(p => p.persona_id === pid);
+function tieneVac(pid) { const d = dirDe(pid), n = d && d.nivel_id ? nivel(d.nivel_id) : null; return !n || n.vacaciones !== false; }
+const tokens = n => limpiar(n).replace(/[^a-z ]/g, "").split(" ").filter(Boolean);
+function mismaPersona(a, b) { const x = tokens(a), y = tokens(b); if (!x.length || !y.length || x[0] !== y[0]) return false; const [c, l] = x.length <= y.length ? [x, y] : [y, x]; return c.every(t => l.includes(t)); }
+
+async function cargarEquipo() {
+  const [d, n, pu, pr, m, ve, gp] = await Promise.all([ok(sb.rpc("directorio")), ok(sb.from("niveles").select("*").order("orden")), ok(sb.from("puestos").select("*")),
+    ok(sb.from("proyectos").select("*").order("orden")), ok(sb.from("proyecto_miembros").select("*")), ok(sb.rpc("veo_estructura")), ok(sb.rpc("gestiono_proyectos"))]);
+  DIR = d || []; NIVELES = n || []; PUESTOS = pu || []; PROY = pr || []; MIEMB = m || []; PERM = { estructura: !!ve, proyectos: !!gp };
+}
+async function ausenciasDel(fecha) {
+  if (!PERM.estructura && !PERM.proyectos) return [];
+  try { return (await ok(sb.rpc("ausencias", { p_fecha: fecha }))) || []; } catch (e) { return []; }
+}
+const textoAus = a => a ? `De vacaciones hasta el ${dTxt(a.hasta, false)}${a.suplente_id ? ` · lo cubre ${esc(primerNombre(nombreDe(a.suplente_id)))}` : ""}` : "";
+
+/* ---------- Estructura (organigrama con vacantes) ---------- */
+function hijosDe(id) {
+  return PUESTOS.filter(p => p.reporta_a === id).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || (a.orden || 0) - (b.orden || 0) || (a.persona_id ? 0 : 1) - (b.persona_id ? 0 : 1) || a.cargo.localeCompare(b.cargo, "es"));
+}
+function descPuestos(id) { const out = new Set(), q = [id]; while (q.length) { const x = q.shift(); PUESTOS.forEach(p => { if (p.reporta_a === x && !out.has(p.id)) { out.add(p.id); q.push(p.id); } }); } return out; }
+async function vistaEstructura(m) {
+  const hoy = dHoy(); EQ.fecha ||= hoy;
+  const aus = await ausenciasDel(EQ.fecha), ausDe = pid => aus.find(a => a.persona_id === pid);
+  const admin = soyAdmin(), ids = new Set(PUESTOS.map(p => p.id));
+  const cubiertos = PUESTOS.filter(p => p.persona_id).length, vac = PUESTOS.length - cubiertos, proc = PUESTOS.filter(p => !p.persona_id && p.en_proceso).length, interinos = PUESTOS.filter(p => !p.persona_id && p.encargado_id).length;
+  const fuera = PUESTOS.filter(p => p.persona_id && ausDe(p.persona_id)).length;
+  const caja = p => { const a = p.persona_id ? ausDe(p.persona_id) : null, col = COLOR_NIVEL[p.nivel_id] || "#8790a5";
+    const enc = !p.persona_id && p.encargado_id, otros = p.persona_id ? PUESTOS.filter(x => !x.persona_id && x.encargado_id === p.persona_id) : [];
+    return `<button class="ocb${p.persona_id ? "" : " vac"}${enc ? " int" : ""}${a ? " aus" : ""}" data-pu="${p.id}" style="--nc:${col}">
+      <span class="ocn">${p.persona_id ? esc(nombreDe(p.persona_id)) : "Vacante"}</span><span class="occ">${esc(p.cargo)}</span>
+      ${enc ? `<span class="ocint">Encargado/a: ${esc(nombreDe(p.encargado_id))}</span>` : ""}
+      ${otros.length ? `<span class="ocint">También a cargo de ${otros.map(x => esc(x.cargo)).join(", ")}</span>` : ""}
+      ${p.persona_id && p.supervisor_interino_id ? `<span class="ocint">Reporta temporalmente a ${esc(primerNombre(nombreDe(p.supervisor_interino_id)))}</span>` : ""}
+      ${!p.persona_id && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}</button>`; };
+  const vistos = new Set();
+  const rama = p => {
+    if (vistos.has(p.id)) return ""; vistos.add(p.id);
+    const hijos = hijosDe(p.id).filter(h => !vistos.has(h.id)); if (!hijos.length) return caja(p);
+    const hojas = hijos.filter(h => !PUESTOS.some(x => x.reporta_a === h.id)), items = [];
+    hijos.filter(h => !hojas.includes(h)).forEach(h => items.push({ k: (nivel(h.nivel_id) || {}).orden || 99, html: `<li>${rama(h)}</li>` }));
+    if (hojas.length >= 3) {
+      const grupos = {}; hojas.forEach(h => (grupos[h.nivel_id] ||= []).push(h));
+      Object.entries(grupos).forEach(([nv, l]) => { l.forEach(h => vistos.add(h.id)); items.push({ k: (nivel(nv) || {}).orden || 99, html: `<li><div class="pila"><span class="pila-t">${esc((nivel(nv) || {}).nombre || nv)} · ${l.length}</span>${l.map(caja).join("")}</div></li>` }); });
+    } else hojas.forEach(h => { vistos.add(h.id); items.push({ k: (nivel(h.nivel_id) || {}).orden || 99, html: `<li>${caja(h)}</li>` }); });
+    items.sort((a, b) => a.k - b.k);
+    return `${caja(p)}<ul>${items.map(i => i.html).join("")}</ul>`;
+  };
+  const raices = PUESTOS.filter(p => !p.reporta_a || !ids.has(p.reporta_a)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99));
+  const arbol = raices.map(r => `<li>${rama(r)}</li>`).join("");
+  const sinPuesto = admin ? PERSONAS.filter(p => p.activo !== false && !puestoDe(p.id)) : [];
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Estructura</h1><p class="sub" style="margin-bottom:18px">Puestos cubiertos, vacantes y encargadurías${admin ? ". Haz clic en un puesto para editarlo, asignar a alguien, dejarlo vacante o nombrar un encargado." : ". Solo la ven las personas que autoriza el super-admin."}</p></div>
+      <div class="fila no-print" style="margin-bottom:14px">
+        <label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>
+        ${admin ? `<button class="btn sec" id="eNiv">Niveles y permisos</button><button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+    ${!PUESTOS.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura cargada</h2><p class="nota-h">${admin ? "Carga la estructura actual (la de tu presentación, con sus vacantes) y luego ajústala aquí cuando cambie. Las personas se emparejan por nombre con las que ya están en el portal; las que falten se agregan." : "El super-admin aún no la ha cargado."}</p>${admin ? (ESTRUCTURA_INICIAL.length ? `<button class="btn" id="eSemilla">Cargar estructura actual</button><div class="err" id="eErr"></div>` : `<div class="aviso" style="display:block">Para cargar la estructura actual, abre una vez desde tu computadora el archivo de carga inicial (portal_carga_inicial.html) y pulsa “Cargar estructura actual”. También puedes armarla aquí con “+ Agregar puesto”.</div>`) : ""}</div>` : `
+    <div class="franja">
+      <div><div class="v">${PUESTOS.length}</div><div class="l">Puestos</div></div>
+      <div><div class="v">${cubiertos}</div><div class="l">Cubiertos</div></div>
+      <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).length ? ` (${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).join(", ")})` : ""}</div></div>
+      <div><div class="v">${fuera}</div><div class="l">De vacaciones ${EQ.fecha === hoy ? "hoy" : "el " + dTxt(EQ.fecha, false)}</div></div></div>
+    <div class="panel" style="padding:14px 16px">
+      <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
+        <div class="leyenda" style="margin:0">${NIVELES.filter(n => PUESTOS.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span><span><i class="sw" style="background:#e6ecfb"></i>Con encargado/a</span></div>
+        <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
+      <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
+    ${sinPuesto.length ? `<div class="panel"><h2>Personas sin puesto</h2><p class="nota-h">Están en el portal pero no ocupan ningún puesto del organigrama. Abre un puesto (o crea uno) y asígnalas.</p><div class="vprox-l" style="flex-wrap:wrap">${sinPuesto.map(p => `<span class="vchip" style="cursor:default"><b>${esc(p.nombre)}</b></span>`).join("")}</div></div>` : ""}`}`;
+  $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
+  if (admin) { $("eNiv").onclick = modalNiveles; $("eNuevo").onclick = () => modalPuesto(null); }
+  if ($("eSemilla")) $("eSemilla").onclick = () => cargarSemilla($("eErr"));
+  m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => admin ? modalPuesto(b.dataset.pu) : modalInfoPuesto(b.dataset.pu, aus));
+  const oc = $("oc"), wrap = $("ocwrap");
+  if (oc) {
+    const aplicar = () => { oc.style.zoom = EQ.zoom; };
+    const ajustar = () => { oc.style.zoom = 1; EQ.zoom = Math.max(0.5, Math.min(1, (wrap.clientWidth - 4) / oc.scrollWidth)); aplicar(); };
+    if (EQ.zoom == null) ajustar(); else aplicar();
+    $("zAjustar").onclick = ajustar; $("zMas").onclick = () => { EQ.zoom = Math.min(1.4, EQ.zoom + 0.1); aplicar(); }; $("zMenos").onclick = () => { EQ.zoom = Math.max(0.35, EQ.zoom - 0.1); aplicar(); };
+  }
+}
+function modalInfoPuesto(id, aus) {
+  const p = PUESTOS.find(x => x.id === id); if (!p) return;
+  const jefe = PUESTOS.find(x => x.id === p.reporta_a), a = p.persona_id ? aus.find(x => x.persona_id === p.persona_id) : null;
+  const proys = p.persona_id ? MIEMB.filter(x => x.persona_id === p.persona_id).map(x => ({ ...x, pr: PROY.find(z => z.id === x.proyecto_id) })).filter(x => x.pr) : [];
+  modal(`<h2>${p.persona_id ? esc(nombreDe(p.persona_id)) : "Vacante"}</h2>
+    <p class="nota-h" style="margin:0 0 12px">${esc(p.cargo)} · ${esc((nivel(p.nivel_id) || {}).nombre || "")}</p>
+    ${!p.persona_id && p.en_proceso ? `<div class="vtag warn">En proceso de contratación</div>` : ""}
+    <table class="vmov"><tr><td style="width:120px">Reporta a</td><td>${jefe ? `${esc(jefe.cargo)}${jefe.persona_id ? " · " + esc(nombreDe(jefe.persona_id)) : " (vacante)"}` : "—"}</td></tr>
+    ${!p.persona_id && p.encargado_id ? `<tr><td>Encargado/a</td><td>${esc(nombreDe(p.encargado_id))} (doble rol mientras se cubre)</td></tr>` : ""}
+    ${p.persona_id && p.supervisor_interino_id ? `<tr><td>Temporalmente</td><td>Reporta a ${esc(nombreDe(p.supervisor_interino_id))}</td></tr>` : ""}
+    ${a ? `<tr><td>Ausencia</td><td>${textoAus(a)}</td></tr>` : ""}
+    ${p.persona_id ? `<tr><td>Proyectos</td><td>${proys.length ? proys.map(x => `<span class="pchip" style="--pc:${x.pr.color}">${esc(x.pr.nombre)}${x.rol !== "Miembro" ? " · " + esc(x.rol) : ""}</span>`).join(" ") : "—"}</td></tr>` : ""}</table>`, 480);
+}
+function modalPuesto(id) {
+  const nuevo = !id, p0 = id ? PUESTOS.find(x => x.id === id) : null;
+  const p = p0 ? { ...p0 } : { id: uuid(), cargo: "", nivel_id: "AN", reporta_a: null, persona_id: null, en_proceso: false, orden: 0 };
+  const prohibidos = nuevo ? new Set() : descPuestos(p.id);
+  const opcPuestos = PUESTOS.filter(x => x.id !== p.id && !prohibidos.has(x.id)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || a.cargo.localeCompare(b.cargo, "es"));
+  const libres = PERSONAS.filter(x => x.activo !== false && (!puestoDe(x.id) || x.id === p.persona_id)).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const el = modal(`<h2>${nuevo ? "Agregar puesto" : esc(p.cargo)}</h2>
+    <label class="f">Cargo</label><input type="text" id="uC" value="${esc(p.cargo)}" placeholder="Ej.: Analista Exploración">
+    <div class="dos" style="gap:12px"><div><label class="f">Nivel</label><select id="uN">${NIVELES.map(n => `<option value="${n.id}" ${n.id === p.nivel_id ? "selected" : ""}>${esc(n.nombre)}</option>`).join("")}</select></div>
+      <div><label class="f">Reporta a</label><select id="uR"><option value="">— Nadie (puesto superior) —</option>${opcPuestos.map(x => `<option value="${x.id}" ${x.id === p.reporta_a ? "selected" : ""}>${esc(x.cargo)}${x.persona_id ? " · " + esc(nombreDe(x.persona_id)) : " (vacante)"}</option>`).join("")}</select></div></div>
+    <label class="f">Ocupado por</label><select id="uP"><option value="">— Vacante —</option>${libres.map(x => `<option value="${x.id}" ${x.id === p.persona_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}<option value="__nueva">＋ Persona nueva…</option></select>
+    <div id="uNueva" style="display:none" class="dos"><div><label class="f">Nombre completo</label><input type="text" id="uNN"></div><div><label class="f">Fecha de ingreso</label><input type="date" id="uNI"></div></div>
+    <div id="uVacW"><label class="f">Encargado/a interino/a <span style="color:var(--ink-3)">doble rol mientras se cubre la vacante</span></label><select id="uE"><option value="">— Nadie —</option>${PERSONAS.filter(x => x.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.encargado_id ? "selected" : ""}>${esc(x.nombre)}${puestoDe(x.id) ? " · " + esc(puestoDe(x.id).cargo) : ""}</option>`).join("")}</select>
+      <p style="font-size:12.5px;color:var(--ink-3);margin:6px 0 0">Los puestos que dependen de esta vacante pasan a reportarle a esa persona, que gestiona sus vacaciones.</p>
+      <label class="fila" style="gap:8px;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="uProc" ${p.en_proceso ? "checked" : ""}> Vacante en proceso de contratación</label></div>
+    <div id="uOcW"><label class="f">Reporta temporalmente a <span style="color:var(--ink-3)">opcional, sin mover el puesto</span></label><select id="uT"><option value="">— Según la estructura —</option>${PERSONAS.filter(x => x.activo !== false && x.id !== p.persona_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.supervisor_interino_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+    <div class="err" id="uErr"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+      <span class="fila">${nuevo ? "" : `<button class="btn peligro" id="uDel">Eliminar puesto</button>${p.persona_id ? `<button class="btn peligro" id="uSacar" style="margin-left:14px">Sacar del equipo</button>` : ""}`}</span>
+      <span class="fila">${nuevo ? "" : `<button class="btn sec" id="uHijo">+ Puesto que le reporte</button>`}<button class="btn sec" id="uNo">Cancelar</button><button class="btn" id="uOk">Guardar</button></span></div>`, 600);
+  const g = s => el.querySelector(s), err = t => g("#uErr").textContent = t;
+  const refrescar = () => { const v = g("#uP").value; g("#uNueva").style.display = v === "__nueva" ? "grid" : "none"; g("#uVacW").style.display = v ? "none" : ""; g("#uOcW").style.display = v ? "" : "none"; };
+  g("#uP").onchange = refrescar; refrescar();
+  g("#uNo").onclick = cerrarModal;
+  if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
+  if (!nuevo) g("#uDel").onclick = async () => {
+    const hijos = PUESTOS.filter(x => x.reporta_a === p.id).length;
+    if (!confirm(`¿Eliminar el puesto “${p.cargo}”?${hijos ? ` Sus ${hijos} puesto(s) a cargo pasarán a reportar al puesto superior.` : ""}${p.persona_id ? " La persona sigue en el portal, sin puesto." : ""}`)) return;
+    try { if (hijos) await ok(sb.from("puestos").update({ reporta_a: p.reporta_a }).eq("reporta_a", p.id)); await ok(sb.from("puestos").delete().eq("id", p.id)); cerrarModal(); recargar("Puesto eliminado"); } catch (e) { err("No se eliminó: " + mensajeError(e)); }
+  };
+  if (!nuevo && g("#uSacar")) g("#uSacar").onclick = async () => {
+    const n = nombreDe(p.persona_id);
+    if (!confirm(`¿Sacar a ${n} del equipo? El puesto queda vacante y ${primerNombre(n)} queda inactiva: ya no podrá entrar al portal. Sus datos se conservan.`)) return;
+    try { await ok(sb.from("puestos").update({ persona_id: null }).eq("id", p.id)); await ok(sb.from("personas").update({ activo: false }).eq("id", p.persona_id)); await ok(sb.from("proyecto_miembros").delete().eq("persona_id", p.persona_id)); cerrarModal(); recargar(`${n} salió del equipo`); } catch (e) { err("No se completó: " + mensajeError(e)); }
+  };
+  g("#uOk").onclick = async () => {
+    const cargo = texto(g("#uC").value); if (!cargo) return err("Escribe el cargo.");
+    let persona = g("#uP").value || null;
+    try {
+      if (persona === "__nueva") {
+        const nom = texto(g("#uNN").value).replace(/\s+/g, " "); if (!nom) return err("Escribe el nombre de la persona nueva.");
+        if (PERSONAS.some(x => mismaPersona(x.nombre, nom))) return err("Esa persona ya está en el portal: elígela de la lista.");
+        persona = uuid(); await ok(sb.from("personas").insert({ id: persona, nombre: nom, ingreso: g("#uNI").value || null, corte: dHoy() }));
+      }
+      const fila = { cargo, nivel_id: g("#uN").value, reporta_a: g("#uR").value || null, persona_id: persona, en_proceso: !persona && g("#uProc").checked,
+        encargado_id: persona ? null : (g("#uE").value || null), supervisor_interino_id: persona ? (g("#uT").value && g("#uT").value !== persona ? g("#uT").value : null) : null };
+      if (nuevo) await ok(sb.from("puestos").insert({ id: p.id, ...fila })); else await ok(sb.from("puestos").update(fila).eq("id", p.id));
+      cerrarModal(); recargar(nuevo ? "Puesto agregado" : "Puesto guardado");
+    } catch (e) { err("No se guardó: " + mensajeError(e)); }
+  };
+  if (nuevo) setTimeout(() => g("#uC").focus(), 0);
+}
+function modalNiveles() {
+  const el = modal(`<h2>Niveles y permisos</h2><p class="nota-h">Qué permite cada nivel. El nivel de cada persona sale del puesto que ocupa. Quién ve la estructura se decide persona por persona (en su ficha). Tú, como super-admin, siempre puedes todo.</p>
+    <table class="vmov"><tr><th>Nivel</th><th style="text-align:center">Gestiona proyectos</th><th style="text-align:center">Acumula vacaciones</th></tr>
+    ${NIVELES.map(n => `<tr><td>${esc(n.nombre)}</td>${["gestiona_proyectos", "vacaciones"].map(k => `<td style="text-align:center"><input type="checkbox" class="chk" data-n="${n.id}" data-k="${k}" ${n[k] ? "checked" : ""}></td>`).join("")}</tr>`).join("")}</table>
+    <div class="err" id="nErr"></div><div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="nNo">Cancelar</button><button class="btn" id="nOk">Guardar</button></div>`, 620);
+  el.querySelector("#nNo").onclick = cerrarModal;
+  el.querySelector("#nOk").onclick = async () => {
+    try {
+      for (const n of NIVELES) { const v = {}; el.querySelectorAll(`[data-n="${n.id}"]`).forEach(c => v[c.dataset.k] = c.checked); if (["gestiona_proyectos", "vacaciones"].some(k => v[k] !== n[k])) await ok(sb.from("niveles").update(v).eq("id", n.id)); }
+      cerrarModal(); recargar("Permisos guardados");
+    } catch (e) { el.querySelector("#nErr").textContent = "No se guardó: " + mensajeError(e); }
+  };
+}
+
+/* Estructura actual (presentación “Estructura Actual”, noviembre 2026) */
+const ESTRUCTURA_INICIAL = [];  // la estructura se carga una sola vez con el archivo de carga inicial
+async function cargarSemilla(errEl) {
+  errEl.textContent = "Cargando…";
+  try {
+    const ids = {}, nuevas = [], usadas = new Set();
+    ESTRUCTURA_INICIAL.forEach(([k]) => ids[k] = uuid());
+    const persona = {};
+    for (const [k, , , , nom] of ESTRUCTURA_INICIAL) {
+      if (!nom) continue;
+      const ex = PERSONAS.find(p => !usadas.has(p.id) && mismaPersona(p.nombre, nom));
+      if (ex) { persona[k] = ex.id; usadas.add(ex.id); }
+      else { const id = uuid(); persona[k] = id; nuevas.push({ id, nombre: nom, corte: dHoy() }); }
+    }
+    if (nuevas.length) await ok(sb.from("personas").insert(nuevas));
+    const filas = ESTRUCTURA_INICIAL.map(([k, cargo, nv, rep], i) => ({ id: ids[k], cargo, nivel_id: nv, reporta_a: rep ? ids[rep] : null, persona_id: persona[k] || null, orden: i }));
+    const kat = persona["kr"];
+    filas.find(f => f.id === ids["gc"]).encargado_id = kat || null;
+    await ok(sb.from("puestos").insert(filas));
+    for (const k of ["dir", "kr"]) if (persona[k]) await ok(sb.from("personas").update({ ve_estructura: true }).eq("id", persona[k]));
+    recargar(`Estructura cargada${nuevas.length ? ` (${nuevas.length} personas nuevas)` : ""}`);
+  } catch (e) { errEl.textContent = "No se completó: " + mensajeError(e); }
+}
+
+/* ---------- Proyectos ---------- */
+async function vistaProyectos(m) {
+  const hoy = dHoy(), aus = await ausenciasDel(hoy), ausDe = pid => aus.find(a => a.persona_id === pid), editor = PERM.proyectos;
+  const miembros = pid => MIEMB.filter(x => x.proyecto_id === pid).sort((a, b) => ROLES.indexOf(a.rol) - ROLES.indexOf(b.rol) || nombreDe(a.persona_id).localeCompare(nombreDe(b.persona_id), "es"));
+  const gente = DIR.filter(d => d.nivel_id !== undefined);
+  const sinProy = gente.filter(d => !MIEMB.some(x => x.persona_id === d.id));
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Proyectos</h1><p class="sub" style="margin-bottom:18px">Quién está en cada proyecto${editor ? ". Puedes crear proyectos y armar sus equipos." : "."}</p></div>
+      <div class="fila no-print" style="margin-bottom:14px"><div class="toggle" id="pModo"><button data-m="proyecto" class="${EQ.modo === "proyecto" ? "on" : ""}">Por proyecto</button><button data-m="persona" class="${EQ.modo === "persona" ? "on" : ""}">Por persona</button></div>${editor ? `<button class="btn" id="pNuevo">+ Nuevo proyecto</button>` : ""}</div></div>
+    ${EQ.modo === "proyecto" ? `<div class="pgrid">${PROY.map(pr => { const ms = miembros(pr.id); return `<div class="pcard" style="--pc:${esc(pr.color)}">
+        <div class="pc-h"><div><b>${esc(pr.nombre)}</b>${pr.descripcion ? `<span>${esc(pr.descripcion)}</span>` : ""}</div>${editor ? `<button class="vc-btn" data-ped="${pr.id}">Editar</button>` : ""}</div>
+        <div class="pc-n">${ms.length} ${ms.length === 1 ? "persona" : "personas"}</div>
+        <ul class="pc-m">${ms.map(x => { const d = dirDe(x.persona_id) || {}, a = ausDe(x.persona_id); return `<li><span class="av s">${esc(iniciales(d.nombre || "?"))}</span><span><b>${esc(d.nombre || "—")}</b><small>${esc(cargoDe(d))}</small>${a ? `<small class="aus">${textoAus(a)}</small>` : ""}</span>${x.rol !== "Miembro" ? `<span class="vtag info">${esc(x.rol)}</span>` : ""}</li>`; }).join("") || `<li class="vacio" style="font-size:13px">Sin personas asignadas</li>`}</ul></div>`; }).join("")}
+        ${editor ? `<button class="pcard padd" id="pNuevo2"><span>+</span>Nuevo proyecto</button>` : ""}</div>
+        ${!PROY.length && !editor ? `<div class="panel vacio">Aún no hay proyectos.</div>` : ""}`
+    : `<div class="panel" style="padding:8px 14px"><table class="vadm"><tr><th>Persona</th><th>Cargo</th><th>Proyectos</th></tr>
+        ${gente.map(d => { const ps = MIEMB.filter(x => x.persona_id === d.id).map(x => ({ ...x, pr: PROY.find(z => z.id === x.proyecto_id) })).filter(x => x.pr);
+          return `<tr class="${editor ? "clic" : ""}" ${editor ? `data-pper="${d.id}"` : ""}><td><b style="font-weight:500">${esc(d.nombre)}</b></td><td style="color:var(--ink-2)">${esc(cargoDe(d) || "—")}</td><td>${ps.map(x => `<span class="pchip" style="--pc:${esc(x.pr.color)}">${esc(x.pr.nombre)}${x.rol !== "Miembro" ? " · " + esc(x.rol) : ""}</span>`).join(" ") || `<span class="vtag warn">Sin proyecto</span>`}</td></tr>`; }).join("")}</table></div>
+      ${sinProy.length ? `<p class="pend">${sinProy.length} ${sinProy.length === 1 ? "persona sin proyecto" : "personas sin proyecto"}.${editor ? " Haz clic en una fila para asignarla." : ""}</p>` : ""}`}`;
+  $("pModo").onclick = e => { const b = e.target.closest("[data-m]"); if (b) { EQ.modo = b.dataset.m; vistaProyectos(m); } };
+  if (editor) { $("pNuevo").onclick = () => modalProyecto(null); if ($("pNuevo2")) $("pNuevo2").onclick = () => modalProyecto(null); }
+  m.querySelectorAll("[data-ped]").forEach(b => b.onclick = () => modalProyecto(b.dataset.ped));
+  m.querySelectorAll("[data-pper]").forEach(t => t.onclick = () => modalAsignar(t.dataset.pper));
+}
+function modalProyecto(id) {
+  const nuevo = !id, p0 = id ? PROY.find(x => x.id === id) : null;
+  const p = p0 ? { ...p0 } : { id: uuid(), nombre: "", descripcion: "", color: COLORES_PROY[PROY.length % COLORES_PROY.length] };
+  let ms = MIEMB.filter(x => x.proyecto_id === p.id).map(x => ({ persona_id: x.persona_id, rol: x.rol }));
+  const el = modal(`<h2>${nuevo ? "Nuevo proyecto" : "Editar proyecto"}</h2>
+    <label class="f">Nombre</label><input type="text" id="jN" value="${esc(p.nombre)}" placeholder="Ej.: HZ Polar en el Campo">
+    <label class="f">Descripción <span style="color:var(--ink-3)">opcional</span></label><input type="text" id="jD" value="${esc(p.descripcion || "")}">
+    <label class="f">Color</label><div class="fila" id="jC">${COLORES_PROY.map(c => `<button type="button" class="csw${c === p.color ? " on" : ""}" data-c="${c}" style="background:${c}" aria-label="Color"></button>`).join("")}</div>
+    <h3 style="font-size:14px;margin:20px 0 6px">Personas</h3><div id="jM"></div>
+    <div class="fila" style="margin-top:8px;flex-wrap:nowrap"><select id="jP"></select><select id="jR" style="width:140px">${ROLES.map(r => `<option ${r === "Miembro" ? "selected" : ""}>${r}</option>`).join("")}</select><button class="btn sec" id="jAdd" style="white-space:nowrap">Agregar</button></div>
+    <div class="err" id="jErr"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px">${nuevo ? "<span></span>" : `<button class="btn peligro" id="jDel">Eliminar proyecto</button>`}<span class="fila"><button class="btn sec" id="jNo">Cancelar</button><button class="btn" id="jOk">Guardar</button></span></div>`, 620);
+  const g = s => el.querySelector(s);
+  const dibujar = () => {
+    g("#jM").innerHTML = ms.length ? `<table class="vmov">${ms.map((x, i) => `<tr><td>${esc(nombreDe(x.persona_id))}<div style="font-size:12px;color:var(--ink-3)">${esc((dirDe(x.persona_id) || {}).cargo || "")}</div></td><td style="width:140px"><select data-mr="${i}">${ROLES.map(r => `<option ${r === x.rol ? "selected" : ""}>${r}</option>`).join("")}</select></td><td class="num" style="width:70px"><button class="btn peligro" style="padding:0" data-mq="${i}">Quitar</button></td></tr>`).join("")}</table>` : `<p class="pend" style="margin:0">Aún no hay personas en este proyecto.</p>`;
+    const dentro = new Set(ms.map(x => x.persona_id));
+    g("#jP").innerHTML = `<option value="">Elige a una persona…</option>` + DIR.filter(d => !dentro.has(d.id)).map(d => `<option value="${d.id}">${esc(d.nombre)}${d.cargo ? " · " + esc(d.cargo) : ""}</option>`).join("");
+    el.querySelectorAll("[data-mq]").forEach(b => b.onclick = () => { ms.splice(+b.dataset.mq, 1); dibujar(); });
+    el.querySelectorAll("[data-mr]").forEach(s => s.onchange = () => ms[+s.dataset.mr].rol = s.value);
+  };
+  g("#jC").onclick = e => { const b = e.target.closest("[data-c]"); if (!b) return; p.color = b.dataset.c; el.querySelectorAll(".csw").forEach(x => x.classList.toggle("on", x === b)); };
+  g("#jAdd").onclick = () => { const v = g("#jP").value; if (!v) return; ms.push({ persona_id: v, rol: g("#jR").value }); g("#jR").value = "Miembro"; dibujar(); };
+  g("#jNo").onclick = cerrarModal;
+  if (!nuevo) g("#jDel").onclick = async () => { if (!confirm(`¿Eliminar el proyecto “${p.nombre}”? Las personas no se borran, solo su asignación.`)) return; try { await ok(sb.from("proyectos").delete().eq("id", p.id)); cerrarModal(); recargar("Proyecto eliminado"); } catch (e) { g("#jErr").textContent = "No se eliminó: " + mensajeError(e); } };
+  g("#jOk").onclick = async () => {
+    const nombre = texto(g("#jN").value); if (!nombre) return (g("#jErr").textContent = "Escribe el nombre del proyecto.");
+    if (PROY.some(x => x.id !== p.id && limpiar(x.nombre) === limpiar(nombre))) return (g("#jErr").textContent = "Ya existe un proyecto con ese nombre.");
+    const fila = { nombre, descripcion: texto(g("#jD").value) || null, color: p.color };
+    try {
+      if (nuevo) await ok(sb.from("proyectos").insert({ id: p.id, ...fila, orden: PROY.length })); else await ok(sb.from("proyectos").update(fila).eq("id", p.id));
+      await ok(sb.from("proyecto_miembros").delete().eq("proyecto_id", p.id));
+      if (ms.length) await ok(sb.from("proyecto_miembros").insert(ms.map(x => ({ proyecto_id: p.id, persona_id: x.persona_id, rol: x.rol }))));
+      cerrarModal(); recargar(nuevo ? "Proyecto creado" : "Proyecto guardado");
+    } catch (e) { g("#jErr").textContent = "No se guardó: " + mensajeError(e); }
+  };
+  dibujar(); if (nuevo) setTimeout(() => g("#jN").focus(), 0);
+}
+function modalAsignar(pid) {
+  const d = dirDe(pid); if (!d) return;
+  const el = modal(`<h2>${esc(d.nombre)}</h2><p class="nota-h">${esc(d.cargo || "")}. Marca los proyectos en los que participa.</p>
+    <table class="vmov">${PROY.map(pr => { const x = MIEMB.find(z => z.proyecto_id === pr.id && z.persona_id === pid); return `<tr><td style="width:30px"><input type="checkbox" class="chk" data-ap="${pr.id}" ${x ? "checked" : ""}></td><td><span class="pchip" style="--pc:${esc(pr.color)}">${esc(pr.nombre)}</span></td><td style="width:140px"><select data-ar="${pr.id}">${ROLES.map(r => `<option ${r === (x ? x.rol : "Miembro") ? "selected" : ""}>${r}</option>`).join("")}</select></td></tr>`; }).join("") || `<tr><td class="vacio">Aún no hay proyectos.</td></tr>`}</table>
+    <div class="err" id="aErr"></div><div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="aNo">Cancelar</button><button class="btn" id="aOk">Guardar</button></div>`, 520);
+  el.querySelector("#aNo").onclick = cerrarModal;
+  el.querySelector("#aOk").onclick = async () => {
+    try {
+      for (const pr of PROY) {
+        const marcado = el.querySelector(`[data-ap="${pr.id}"]`).checked, rol = el.querySelector(`[data-ar="${pr.id}"]`).value, x = MIEMB.find(z => z.proyecto_id === pr.id && z.persona_id === pid);
+        if (marcado && !x) await ok(sb.from("proyecto_miembros").insert({ proyecto_id: pr.id, persona_id: pid, rol }));
+        else if (marcado && x && x.rol !== rol) await ok(sb.from("proyecto_miembros").update({ rol }).eq("proyecto_id", pr.id).eq("persona_id", pid));
+        else if (!marcado && x) await ok(sb.from("proyecto_miembros").delete().eq("proyecto_id", pr.id).eq("persona_id", pid));
+      }
+      cerrarModal(); recargar("Proyectos actualizados");
+    } catch (e) { el.querySelector("#aErr").textContent = "No se guardó: " + mensajeError(e); }
+  };
+}
+
+
+/* ---------- Datos ---------- */
+let sb = null, usuario = null, YO = null, PERSONAS = [], EQ_CAL = [], GEST = new Set();
+const S = { vista: "mias" };
+const soyAdmin = () => !!(YO && YO.admin && YO.activo !== false);
+const gestiono = pid => soyAdmin() || GEST.has(pid);
+const puedoEditar = pid => (YO && pid === YO.id) || gestiono(pid);
+function descendientes(id) { const out = new Set(), cola = [id]; while (cola.length) { const x = cola.shift(); PERSONAS.forEach(p => { if (p.supervisor_id === x && !out.has(p.id) && p.id !== id) { out.add(p.id); cola.push(p.id); } }); } return out; }
+const aVac = p => ({ id: p.id, nombre: p.nombre, ingreso: p.ingreso || "", extra: Number(p.extra) || 0, saldo: Number(p.saldo_inicial) || 0, corte: p.corte, activo: p.activo !== false, nota: p.nota || "", correo: p.correo || "", supervisor_id: p.supervisor_id || null, admin: !!p.admin, user_id: p.user_id || null, cambiar_clave: !!p.cambiar_clave, ve_estructura: !!p.ve_estructura });
+const aReg = r => ({ id: r.id, pid: r.persona_id, tipo: r.tipo, desde: r.desde, hasta: r.hasta, dias: r.dias == null ? null : Number(r.dias), comentario: r.comentario || "", estimado: !!r.estimado, suplente_id: r.suplente_id || null });
+async function cargar() {
+  await sb.rpc("vincular_cuenta");
+  const [p, r, g, e] = await Promise.all([
+    ok(sb.from("personas").select("*").order("nombre")), ok(sb.from("registros").select("*")),
+    ok(sb.from("reglas").select("*").eq("id", 1).maybeSingle()), ok(sb.rpc("equipo_calendario"))]);
+  PERSONAS = p.map(aVac);
+  YO = PERSONAS.find(x => x.user_id === usuario.id) || null;
+  VAC = { personas: PERSONAS, registros: r.map(aReg), reglas: { base: Number(g && g.base) || 15, inc: Number(g && g.inc) || 1, tope: Number(g && g.tope) || 30 }, feriadosExtra: (g && g.feriados_extra) || [] };
+  GEST = soyAdmin() ? new Set(PERSONAS.map(x => x.id).filter(id => !YO || id !== YO.id)) : YO ? descendientes(YO.id) : new Set();
+  EQ_CAL = e || [];
+  await cargarEquipo();
+}
+async function recargar(msg) { try { await cargar(); if (msg) estado(msg); } catch (e) { estado("No se pudo actualizar", true); } armar(); }
+
+/* ---------- Inicio de sesión ---------- */
+function pantallaLogin(msg) {
+  $("app").innerHTML = `<div class="centro">
+    <div style="font-size:12.5px;color:var(--ink-3);margin-bottom:6px">${esc(CONFIG.NOMBRE)}</div>
+    <h1 style="font-size:22px">Entra con tu correo</h1>
+    <p class="sub" style="margin-bottom:14px">Usa el correo corporativo y la clave que te dio tu administrador.</p>
+    <form id="fLogin"><label class="f">Correo</label><input id="lEmail" type="email" autocomplete="username" required>
+    <label class="f">Clave</label><input id="lPass" type="password" autocomplete="current-password" required>
+    <div class="err" id="lErr">${esc(msg || "")}</div>
+    <button class="btn" type="submit" style="margin-top:6px;width:100%;text-align:center">Entrar</button></form>
+    <p style="font-size:12.5px;color:var(--ink-3);margin:16px 0 0">¿Olvidaste tu clave? Pídele a tu administrador que te asigne una nueva.</p></div>`;
+  $("fLogin").onsubmit = async ev => {
+    ev.preventDefault(); $("lErr").textContent = "Entrando…";
+    const { data, error } = await sb.auth.signInWithPassword({ email: $("lEmail").value.trim(), password: $("lPass").value });
+    if (error) return ($("lErr").textContent = mensajeError(error));
+    usuario = data.user; entrar();
+  };
+}
+function pantallaClave(forzada) {
+  const html = `<h1 style="font-size:22px">${forzada ? "Crea tu clave personal" : "Cambiar clave"}</h1>
+    <p class="sub" style="margin-bottom:12px">${forzada ? "Entraste con una clave temporal. Elige una nueva que solo tú conozcas." : "Sesión iniciada como " + esc(usuario.email) + "."}</p>
+    <form id="fClave"><label class="f">Clave nueva (mínimo 8 caracteres)</label><input id="kP1" type="password" autocomplete="new-password" required>
+    <label class="f">Repite la clave nueva</label><input id="kP2" type="password" autocomplete="new-password" required>
+    <div class="err" id="kErr"></div><button class="btn" type="submit" style="margin-top:6px">Guardar clave</button>
+    ${forzada ? `<button class="btn sec" type="button" id="kSalir" style="margin:6px 0 0 6px">Salir</button>` : ""}</form>`;
+  if (forzada) $("app").innerHTML = `<div class="centro">${html}</div>`; else $("main").innerHTML = `<div class="panel" style="max-width:460px">${html}</div>`;
+  if (forzada) $("kSalir").onclick = salir;
+  $("fClave").onsubmit = async ev => {
+    ev.preventDefault(); const p1 = $("kP1").value, p2 = $("kP2").value, e = $("kErr"); e.style.color = "";
+    if (p1.length < 8) return (e.textContent = "La clave debe tener al menos 8 caracteres.");
+    if (p1 !== p2) return (e.textContent = "Las dos claves no coinciden.");
+    e.textContent = "Guardando…";
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) return (e.textContent = mensajeError(error));
+    await sb.rpc("clave_cambiada");
+    if (forzada) { if (YO) YO.cambiar_clave = false; armar(); estado("Clave guardada"); }
+    else { $("fClave").reset(); e.style.color = "var(--ok)"; e.textContent = "Clave actualizada."; }
+  };
+}
+async function salir() { cerrarModal(); await sb.auth.signOut(); usuario = null; YO = null; PERSONAS = []; S.vista = "mias"; EQ.zoom = null; EQ.fecha = null; EQ.modo = "proyecto"; VV.mes = null; pantallaLogin(); }
+async function entrar() {
+  try { await cargar(); } catch (e) { return pantallaLogin("Entraste, pero no pude leer los datos: " + mensajeError(e)); }
+  if (!YO) { $("app").innerHTML = `<div class="centro"><h1 style="font-size:21px">Aún no estás en el organigrama</h1><p class="sub">Tu usuario existe, pero no está asociado a ninguna persona del portal. Pídele al administrador que revise tu correo (${esc(usuario.email)}).</p><button class="btn sec" id="bS">Salir</button></div>`; $("bS").onclick = salir; return; }
+  if (YO.cambiar_clave) return pantallaClave(true);
+  S.vista = "mias"; armar();
+}
+async function iniciar() {
+  if (!window.XLSX || !window.supabase) { $("app").innerHTML = `<div class="centro err">No cargaron las librerías. Revisa tu conexión a internet y recarga la página.</div>`; return; }
+  if (/^__/.test(CONFIG.SUPABASE_URL)) { $("app").innerHTML = `<div class="centro"><h1 style="font-size:20px">Falta conectar el portal</h1><p class="sub">Escribe la Project URL y la llave publishable del proyecto del portal al inicio de este archivo (CONFIG).</p></div>`; return; }
+  sb = window.supabase.createClient(CONFIG.SUPABASE_URL.replace(/\/+$/, ""), CONFIG.SUPABASE_KEY);
+  const { data } = await sb.auth.getSession();
+  if (data && data.session) { usuario = data.session.user; entrar(); } else pantallaLogin();
+}
+
+/* ---------- Estructura ---------- */
+function armar() {
+  const equipo = GEST.size > 0;
+  $("app").innerHTML = `<div class="shell"><aside>
+      <div class="marca">${esc(CONFIG.NOMBRE)}</div><div class="ciclo">Hola, ${esc(primerNombre(YO.nombre))}</div>
+      <div class="grupo">Vacaciones</div>
+      ${tieneVac(YO.id) ? `<button class="nav" data-v="mias">Mis vacaciones</button>` : ""}
+      <button class="nav" data-v="equipo">Todo el equipo<span class="cnt">${PERSONAS.filter(p => p.activo !== false && tieneVac(p.id)).length}</span></button>
+      <div class="grupo">Equipo</div>
+      <button class="nav" data-v="proyectos">Proyectos</button>
+      ${PERM.estructura ? `<button class="nav" data-v="estructura">Estructura</button>` : ""}
+      ${soyAdmin() ? `<div class="grupo">Administración</div><button class="nav" data-v="admin">Personas y accesos</button>` : ""}
+      <div class="pie"><span id="estadoGuardado"></span><span class="correo" title="${esc(usuario.email)}">${esc(usuario.email)}</span><button data-v="clave">Cambiar clave</button><button id="bSalir">Cerrar sesión</button></div>
+    </aside><div><main id="main"></main></div></div>`;
+  document.querySelector("aside").onclick = e => { const b = e.target.closest("[data-v]"); if (b) { S.vista = b.dataset.v; pintar(); } };
+  $("bSalir").onclick = salir;
+  pintar();
+}
+function pintar() {
+  cerrarModal();
+  if ((S.vista === "admin" && !soyAdmin()) || (S.vista === "estructura" && !PERM.estructura) || S.vista === "org") S.vista = "mias";
+  if (S.vista === "mias" && !tieneVac(YO.id)) S.vista = "equipo";
+  document.querySelectorAll("aside [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === S.vista));
+  const m = $("main");
+  if (S.vista === "equipo") vistaEquipo(m);
+  else if (S.vista === "admin") vistaAdmin(m);
+  else if (S.vista === "proyectos") vistaProyectos(m);
+  else if (S.vista === "estructura") vistaEstructura(m);
+  else if (S.vista === "clave") pantallaClave(false);
+  else vistaMias(m);
+  window.scrollTo(0, 0);
+}
+
+/* ---------- Movimientos de una persona ---------- */
+function tablaMovimientos(p, c, hoy) {
+  const mov = [
+    { f: c.corte, t: "Saldo inicial", d: num(p.saldo) || 0, ini: true },
+    ...c.abonos.map(a => ({ f: a.fecha, t: "Aniversario", d: a.dias })),
+    ...c.ajustes.map(a => ({ f: a.desde, t: "Ajuste" + (a.comentario ? ": " + a.comentario : ""), d: num(a.dias) || 0, cls: a.desde > hoy ? "fut" : "", id: a.id })),
+    ...c.vac.filter(r => r.desde > c.corte).map(r => ({ f: r.desde, t: `Vacaciones ${rangoTxt(r.desde, r.hasta)}${r.estimado ? " · fechas por confirmar" : ""}${r.comentario && !r.estimado ? " · " + r.comentario : ""}${r.suplente_id ? " · lo cubre " + nombreDe(r.suplente_id) : ""}`, d: -r.n, cls: r.desde > hoy ? "fut" : r.hasta >= hoy ? "ahora" : "", id: r.id }))
+  ].sort((a, b) => a.f.localeCompare(b.f));
+  return `<table class="vmov">${mov.map(x => `<tr class="${x.cls || ""}${x.id ? " clic" : ""}" ${x.id ? `data-vr="${x.id}"` : ""}><td style="width:110px">${dTxt(x.f)}</td><td>${esc(x.t)}${x.cls === "fut" ? ` <span class="vtag info">planificado</span>` : x.cls === "ahora" ? ` <span class="vtag ok">en curso</span>` : ""}</td><td class="num ${x.ini ? "" : x.d > 0 ? "mas" : ""}">${x.ini ? x.d : (x.d > 0 ? "+" : "") + x.d.toLocaleString("es-VE")}</td></tr>`).join("")}
+    <tr class="tot"><td></td><td>Después de lo planificado</td><td class="num">${c.despues.toLocaleString("es-VE")}</td></tr></table>`;
+}
+const resumenCifras = c => `<div class="vresumen"><div><b class="${c.saldo < 0 ? "neg" : ""}">${c.saldo.toLocaleString("es-VE")}</b><span>disponibles hoy</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b class="${c.despues < 0 ? "neg" : ""}">${c.despues.toLocaleString("es-VE")}</b><span>quedan después</span></div><div><b>${c.prox ? "+" + c.prox.dias : "—"}</b><span>${c.prox ? "el " + dTxt(c.prox.fecha) : "próximo aniversario"}</span></div></div>`;
+
+/* ---------- Mis vacaciones ---------- */
+function vistaMias(m) {
+  const hoy = dHoy(), c = cuentaVac(YO, hoy);
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Mis vacaciones</h1><p class="sub" style="margin-bottom:18px">En días hábiles al ${dTxt(hoy)}. ${YO.ingreso ? `Llevas ${c.anios} ${c.anios === 1 ? "año" : "años"} en la empresa: te corresponden ${c.anual} días por año.` : ""}</p></div>
+      <div class="fila no-print" style="margin-bottom:14px"><button class="btn" id="vNuevo">+ Registrar mis vacaciones</button></div></div>
+    <div class="panel">${resumenCifras(c)}
+      ${c.fuera ? `<div style="margin-top:12px"><span class="vtag ok">Estás de vacaciones hasta el ${dTxt(c.fuera.hasta)}</span></div>` : ""}
+      ${c.porConfirmar ? `<div class="aviso" style="display:block;margin-top:12px">Tienes ${c.porConfirmar} ${c.porConfirmar === 1 ? "bloque" : "bloques"} con fechas por confirmar (venían del Excel semanal). Ábrelos y ajusta las fechas reales.</div>` : ""}
+      <h2 style="margin:22px 0 8px;font-size:15px">Movimientos</h2>${tablaMovimientos(YO, c, hoy)}
+      <p class="pend">Tú gestionas tus días: registras vacaciones, las corriges y haces ajustes (por ejemplo, fines de semana trabajados) con su justificación. Todo cambio queda en el historial y lo puede ver el equipo.</p>
+      <details class="vhist" data-hist="${YO.id}"><summary>Historial de cambios</summary><div class="vhist-c">Cargando…</div></details></div>
+    <div class="panel" id="vCal"></div>`;
+  $("vNuevo").onclick = () => modalRegistro({ pid: YO.id });
+  m.querySelectorAll("tr[data-vr]").forEach(t => t.onclick = () => modalRegistro({ id: t.dataset.vr }));
+  enlazarHistorial(m);
+  pintarCal($("vCal"));
+}
+
+/* ---------- Equipo (supervisor / admin) ---------- */
+const EQV = { filtro: null };
+function vistaEquipo(m) {
+  const hoy = dHoy();
+  EQV.filtro ||= "todos"; if (!GEST.size || soyAdmin()) EQV.filtro = "todos";
+  const gente = PERSONAS.filter(p => p.activo !== false && tieneVac(p.id) && (EQV.filtro === "todos" || GEST.has(p.id))).map(p => ({ p, c: cuentaVac(p, hoy) })).sort((a, b) => a.p.nombre.localeCompare(b.p.nombre, "es"));
+  const fueraHoy = gente.filter(x => x.c.fuera), en30 = dSum(hoy, 30);
+  const proximas = gente.flatMap(x => x.c.planificadas.filter(r => r.desde <= en30).map(r => ({ ...r, nombre: x.p.nombre }))).sort((a, b) => a.desde.localeCompare(b.desde));
+  const total = gente.reduce((s, x) => s + x.c.saldo, 0), alertas = gente.filter(x => x.c.alertas.length).length;
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Todo el equipo</h1><p class="sub" style="margin-bottom:18px">Saldos en días hábiles al ${dTxt(hoy)}. Todos ven las vacaciones de todos; cada quien gestiona las suyas${GEST.size ? " y tú también las de tu gente" : ""}.</p></div>
+      <div class="fila no-print" style="margin-bottom:14px">${GEST.size && !soyAdmin() ? `<div class="toggle" id="vFiltro"><button data-f="todos" class="${EQV.filtro === "todos" ? "on" : ""}">Todos</button><button data-f="mios" class="${EQV.filtro === "mios" ? "on" : ""}">Mi equipo</button></div>` : ""}<button class="btn sec" id="vExcel">Descargar en Excel</button>${tieneVac(YO.id) || GEST.size ? `<button class="btn" id="vNuevo">+ Registrar</button>` : ""}</div></div>
+    <div class="franja">
+      <div><div class="v">${fueraHoy.length}</div><div class="l">Fuera hoy${fueraHoy.length ? `: ${fueraHoy.map(x => esc(primerNombre(x.p.nombre))).join(", ")}` : ""}</div></div>
+      <div><div class="v">${proximas.length}</div><div class="l">Salidas en los próximos 30 días</div></div>
+      <div><div class="v">${total.toLocaleString("es-VE")} <small>días</small></div><div class="l">Acumulados (${gente.length} personas)</div></div>
+      <div><div class="v" style="color:${alertas ? "var(--warn)" : "var(--ok)"}">${alertas}</div><div class="l">${alertas === 1 ? "Persona" : "Personas"} con algo por revisar</div></div></div>
+    ${proximas.length ? `<div class="panel vprox"><h2>Próximas salidas</h2><div class="vprox-l">${proximas.map(r => `<button class="vchip" data-vr="${r.id}"><b>${esc(r.nombre)}</b><span>${rangoTxt(r.desde, r.hasta)} · ${nDias(r.n)}${r.estimado ? " · por confirmar" : ""}</span></button>`).join("")}</div></div>` : ""}
+    <div class="vgrid">${gente.map(tarjetaVac).join("") || `<div class="panel vacio">Aún no hay personas.</div>`}</div>
+    <div class="panel" id="vCal"></div>`;
+  if ($("vNuevo")) $("vNuevo").onclick = () => modalRegistro({});
+  if ($("vFiltro")) $("vFiltro").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { EQV.filtro = b.dataset.f; vistaEquipo(m); } };
+  m.querySelectorAll("[data-vreg]").forEach(b => { if (!puedoEditar(b.dataset.vreg)) b.remove(); });
+  $("vExcel").onclick = exportarVac;
+  m.querySelectorAll("[data-vp]").forEach(b => b.onclick = e => { if (e.target.closest("[data-vreg]")) return; modalPersona(b.dataset.vp); });
+  m.querySelectorAll("[data-vreg]").forEach(b => b.onclick = e => { e.stopPropagation(); modalRegistro({ pid: b.dataset.vreg }); });
+  m.querySelectorAll("[data-vr]").forEach(b => b.onclick = () => modalRegistro({ id: b.dataset.vr }));
+  pintarCal($("vCal"));
+}
+
+/* ---------- Calendario del equipo (solo nombres y fechas) ---------- */
+async function pintarCal(el) {
+  const hoy = dHoy(); VV.mes ||= hoy.slice(0, 7);
+  const [y, mo] = VV.mes.split("-").map(Number), ult = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const ini = `${VV.mes}-01`, fin = `${VV.mes}-${pad2(ult)}`;
+  let vacs = [];
+  try { vacs = await ok(sb.rpc("vacaciones_equipo", { p_desde: ini, p_hasta: fin })) || []; } catch (e) { el.innerHTML = `<div class="err">No pude cargar el calendario: ${esc(mensajeError(e))}</div>`; return; }
+  const dias = Array.from({ length: ult }, (_, i) => `${VV.mes}-${pad2(i + 1)}`);
+  const filas = EQ_CAL.filter(p => tieneVac(p.id)).map(p => ({ p, v: vacs.filter(r => r.persona_id === p.id) }));
+  const ocupado = (x, s) => x.v.find(r => r.desde <= s && r.hasta >= s);
+  const conteo = dias.map(s => habil(s) ? filas.filter(x => ocupado(x, s)).length : null);
+  const max = Math.max(1, ...conteo.filter(n => n != null)), ferMes = dias.filter(s => FER().has(s));
+  el.innerHTML = `<div class="fila" style="justify-content:space-between;margin-bottom:12px">
+      <h2 style="margin:0">Calendario del equipo</h2>
+      <div class="fila vnav no-print"><button data-vm="-1" aria-label="Mes anterior">‹</button><b>${MESES[mo - 1]} ${y}</b><button data-vm="1" aria-label="Mes siguiente">›</button>${VV.mes !== hoy.slice(0, 7) ? `<button data-vm="0" class="hoy">Hoy</button>` : ""}</div></div>
+    <div class="leyenda"><span><i class="sw" style="background:var(--vac)"></i>Vacaciones</span><span><i class="sw rayas"></i>Fechas por confirmar</span><span><i class="sw" style="background:#e3e6ec"></i>Feriado</span><span><i class="sw" style="background:#f1f3f6;border:1px solid var(--rule)"></i>Fin de semana</span></div>
+    <div class="vcal-wrap"><table class="vcal"><thead><tr><th class="n"></th>${dias.map(s => { const w = dDow(s), f = FER().has(s); return `<th class="${w === 0 || w === 6 ? "fs" : ""}${f ? " fer" : ""}${s === hoy ? " hoy" : ""}" title="${f ? esc(FER().get(s)) : ""}"><span>${DIAS_C[w]}</span>${+s.slice(8)}</th>`; }).join("")}</tr></thead>
+    <tbody>${filas.map(x => `<tr><td class="n">${YO && x.p.id === YO.id ? `<b>${esc(x.p.nombre)}</b>` : gestiono(x.p.id) ? `<a href="#" data-vpc="${x.p.id}">${esc(x.p.nombre)}</a>` : esc(x.p.nombre)}</td>${dias.map(s => {
+      const w = dDow(s), f = FER().has(s), r = !f && w !== 0 && w !== 6 ? ocupado(x, s) : null;
+      const cls = [w === 0 || w === 6 ? "fs" : "", f ? "fer" : "", s === hoy ? "hoy" : "", r ? (r.estimado ? "v est" : "v") : ""].filter(Boolean).join(" ");
+      return `<td class="${cls}"${r ? ` data-cp="${x.p.id}" data-cd="${r.desde}" title="${esc(x.p.nombre)}: ${rangoTxt(r.desde, r.hasta)}${r.estimado ? " · por confirmar" : ""}${r.suplente_id ? " · lo cubre " + esc(nombreDe(r.suplente_id)) : ""}"` : f ? ` title="${esc(FER().get(s))}"` : ""}></td>`; }).join("")}</tr>`).join("")}</tbody>
+    <tfoot><tr><td class="n">Personas fuera</td>${conteo.map((n, i) => `<td class="${n == null ? "fs" : ""}${dias[i] === hoy ? " hoy" : ""}">${n ? `<span style="opacity:${0.45 + 0.55 * n / max}">${n}</span>` : ""}</td>`).join("")}</tr></tfoot></table></div>
+    ${ferMes.length ? `<p class="pend" style="margin-top:10px">Feriados del mes: ${ferMes.map(s => `${+s.slice(8)} (${esc(FER().get(s))})`).join(" · ")}</p>` : ""}`;
+  el.querySelectorAll("[data-vm]").forEach(b => b.onclick = () => {
+    const k = +b.dataset.vm;
+    if (k === 0) VV.mes = hoy.slice(0, 7);
+    else { let [yy, mm] = VV.mes.split("-").map(Number); mm += k; if (mm < 1) { mm = 12; yy--; } if (mm > 12) { mm = 1; yy++; } VV.mes = `${yy}-${pad2(mm)}`; }
+    pintarCal(el);
+  });
+  el.querySelectorAll("td[data-cp]").forEach(t => t.onclick = () => { const r = VAC.registros.find(x => x.pid === t.dataset.cp && x.desde === t.dataset.cd && x.tipo !== "ajuste"); if (r) modalRegistro({ id: r.id }); });
+  el.querySelectorAll("[data-vpc]").forEach(a => a.onclick = e => { e.preventDefault(); modalPersona(a.dataset.vpc); });
+}
+
+/* ---------- Registrar / editar ---------- */
+function modalRegistro({ id, pid }) {
+  const hoy = dHoy(), existente = id ? VAC.registros.find(r => r.id === id) : null;
+  const r = existente ? { ...existente } : { id: null, pid: pid || "", tipo: "vac", desde: "", hasta: "", dias: "", comentario: "" };
+  const propio = YO && r.pid === YO.id;
+  const editable = !existente || puedoEditar(r.pid);
+  const opciones = [...(YO && tieneVac(YO.id) ? [YO] : []), ...PERSONAS.filter(p => GEST.has(p.id) && tieneVac(p.id) && (p.activo !== false || p.id === r.pid))];
+  const unaSola = opciones.length === 1;
+  if (!r.pid && unaSola) r.pid = opciones[0].id;
+  const p0 = personaVac(r.pid);
+  const el = modal(`<h2>${existente ? (r.tipo === "ajuste" ? "Ajuste de saldo" : "Vacaciones") : "Registrar"}</h2>
+    ${!editable ? `<div class="aviso" style="display:block;margin:6px 0 4px">Solo lectura: lo pueden cambiar la persona, su supervisor o el super-admin.</div>` : ""}
+    ${unaSola || existente ? `<p class="nota-h" style="margin:2px 0 6px">${esc(p0 ? p0.nombre : "")}</p><input type="hidden" id="rP" value="${r.pid}">`
+      : `<label class="f">Colaborador</label><select id="rP"><option value="">Elige a la persona…</option>${opciones.map(p => `<option value="${p.id}" ${p.id === r.pid ? "selected" : ""}>${esc(p.nombre)}${YO && p.id === YO.id ? " (yo)" : ""}</option>`).join("")}</select>`}
+    <div class="toggle" style="margin-top:14px;${existente ? "display:none" : ""}" id="rT"><button data-t="vac" class="${r.tipo !== "ajuste" ? "on" : ""}">Vacaciones</button><button data-t="ajuste" class="${r.tipo === "ajuste" ? "on" : ""}">Agregar o quitar días</button></div>
+    <div id="rCampos"></div>
+    <div id="rSupW"><label class="f">¿Quién te cubre en esos días? <span style="color:var(--ink-3)">opcional</span></label><select id="rS"><option value="">— Nadie en particular —</option>${DIR.filter(d => d.id !== r.pid).map(d => `<option value="${d.id}" ${d.id === r.suplente_id ? "selected" : ""}>${esc(d.nombre)}${d.cargo ? " · " + esc(d.cargo) : ""}</option>`).join("")}</select></div>
+    <label class="f" id="rCL">Comentario</label><input type="text" id="rC" value="${esc(r.comentario || "")}">
+    <div id="rInfo" class="vinfo"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:18px">${existente && editable ? `<button class="btn peligro" id="rDel">Eliminar</button>` : "<span></span>"}<span class="fila"><button class="btn sec" id="rNo">${editable ? "Cancelar" : "Cerrar"}</button>${editable ? `<button class="btn" id="rOk">${existente ? "Guardar cambios" : "Guardar"}</button>` : ""}</span></div>`);
+  const pidActual = () => el.querySelector("#rP").value;
+  const tipoVisible = () => { const t = el.querySelector("#rT"); if (!existente) t.style.display = pidActual() && puedoEditar(pidActual()) ? "" : "none"; };
+  const campos = () => {
+    el.querySelector("#rCampos").innerHTML = r.tipo === "ajuste"
+      ? `<div class="dos" style="gap:12px"><div><label class="f">Fecha</label><input type="date" id="rD" value="${r.desde || hoy}"></div><div><label class="f">Días (+ suma, − resta)</label><input type="number" id="rN" step="0.5" value="${r.dias ?? ""}" placeholder="Ej.: 3 o -2"></div></div>`
+      : `<div class="dos" style="gap:12px"><div><label class="f">Desde</label><input type="date" id="rD" value="${r.desde}"></div><div><label class="f">Hasta (inclusive)</label><input type="date" id="rH" value="${r.hasta}" ${r.desde ? `min="${r.desde}"` : ""}></div></div>`;
+    el.querySelector("#rC").placeholder = r.tipo === "ajuste" ? "Ej.: trabajé los fines de semana del 8 y 15 de noviembre" : "Ej.: viaje familiar";
+    el.querySelector("#rCL").innerHTML = r.tipo === "ajuste" ? `Justificación <span style="color:var(--bad)">obligatoria</span>` : `Comentario <span style="color:var(--ink-3)">opcional</span>`;
+    el.querySelector("#rSupW").style.display = r.tipo === "ajuste" ? "none" : "";
+    if (!editable) el.querySelectorAll("input,select").forEach(i => i.disabled = true);
+    info();
+  };
+  const leer = () => { r.pid = pidActual(); r.desde = (el.querySelector("#rD") || {}).value || ""; r.comentario = texto(el.querySelector("#rC").value);
+    if (r.tipo === "ajuste") { r.dias = num(el.querySelector("#rN").value); r.hasta = r.desde; } else r.hasta = (el.querySelector("#rH") || {}).value || ""; };
+  const info = () => {
+    leer(); const p = personaVac(r.pid), box = el.querySelector("#rInfo"); let h = "";
+    if (r.tipo !== "ajuste") {
+      if (r.desde && r.hasta && r.hasta >= r.desde) {
+        const n = diasHabiles(r.desde, r.hasta), fer = feriadosEntre(r.desde, r.hasta);
+        h += `<div class="vbig">${nDias(n)} hábiles</div>`;
+        if (fer.length) h += `<div>No cuenta: ${esc(fer.join(", "))}.</div>`;
+        if (p) {
+          const c = cuentaVac(p, hoy), finP = VAC.registros.filter(x => x.pid === p.id && x.id !== r.id).reduce((mx, x) => x.hasta > mx ? x.hasta : mx, r.hasta > hoy ? r.hasta : hoy);
+          const quedan = saldoAl(p, finP, r.id) - (r.desde > c.corte ? n : 0);
+          const aniv = c.prox && c.prox.fecha > hoy && c.prox.fecha <= finP ? c.prox : null;
+          const otrosPlan = VAC.registros.some(x => x.pid === p.id && x.id !== r.id && x.tipo !== "ajuste" && x.desde > hoy);
+          const quien = YO && p.id === YO.id ? "Te quedarían" : `A ${esc(primerNombre(p.nombre))} le quedarían`;
+          h += `<div>${quien} <b style="color:${quedan < 0 ? "var(--bad)" : "inherit"}">${nDias(quedan)}</b>${aniv || otrosPlan ? ` (${[aniv ? `suma los +${aniv.dias} del aniversario del ${dTxt(aniv.fecha, false)}` : "", otrosPlan ? "descuenta lo ya planificado" : ""].filter(Boolean).join(" y ")})` : ""}.</div>`;
+          if (r.desde <= c.corte) h += `<div class="aviso">Esa fecha es anterior al ${dTxt(c.corte)}, día del saldo inicial: ya está incluida en ese saldo y no se descuenta otra vez.</div>`;
+          const choque = VAC.registros.find(x => x.pid === p.id && x.id !== r.id && x.tipo !== "ajuste" && x.desde <= r.hasta && x.hasta >= r.desde);
+          if (choque) h += `<div class="aviso bad">Se cruza con otras vacaciones ya registradas (${rangoTxt(choque.desde, choque.hasta)}).</div>`;
+        }
+      } else if (r.desde && r.hasta) h = `<div class="aviso bad">“Hasta” no puede ser antes de “Desde”.</div>`;
+    } else if (p && r.dias) { const prev = existente && existente.desde <= hoy ? num(existente.dias) || 0 : 0; h = `<div>Saldo después del ajuste: <b>${nDias(cuentaVac(p, hoy).saldo - prev + (r.desde <= hoy ? r.dias : 0))}</b>${r.desde > hoy ? " (se aplica el " + dTxt(r.desde) + ")" : ""}.</div>`; }
+    box.innerHTML = h;
+  };
+  el.querySelector("#rT").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; leer(); r.tipo = b.dataset.t; el.querySelectorAll("#rT button").forEach(x => x.classList.toggle("on", x === b)); campos(); };
+  el.oninput = el.onchange = e => { if (e.target.id === "rP") { tipoVisible(); const s = el.querySelector("#rS"); [...s.options].forEach(o => o.hidden = !!o.value && o.value === pidActual()); } if (e.target.id === "rD" && r.tipo !== "ajuste") { const h = el.querySelector("#rH"); if (h && (!h.value || h.value < e.target.value)) h.value = e.target.value; if (h) h.min = e.target.value; } info(); };
+  el.querySelector("#rNo").onclick = cerrarModal;
+  if (existente && editable) el.querySelector("#rDel").onclick = async () => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    try { await ok(sb.from("registros").delete().eq("id", r.id)); cerrarModal(); recargar("Registro eliminado"); } catch (e) { el.querySelector("#rInfo").innerHTML = `<div class="aviso bad">No se eliminó: ${esc(mensajeError(e))}</div>`; }
+  };
+  if (editable) el.querySelector("#rOk").onclick = async () => {
+    leer();
+    const err = !r.pid ? "Elige a la persona." : !r.desde ? "Pon la fecha." : r.tipo === "ajuste" ? (!r.dias ? "Pon cuántos días suma o resta el ajuste." : !r.comentario ? "Escribe la justificación: queda en el historial." : "") : !r.hasta ? "Pon la fecha de regreso (hasta)." : r.hasta < r.desde ? "“Hasta” no puede ser antes de “Desde”." : !diasHabiles(r.desde, r.hasta) ? "Ese rango no tiene días hábiles." : "";
+    if (err) { el.querySelector("#rInfo").innerHTML = `<div class="aviso bad">${err}</div>`; return; }
+    const fila = { persona_id: r.pid, tipo: r.tipo, desde: r.desde, hasta: r.hasta, dias: r.tipo === "ajuste" ? r.dias : null, comentario: r.comentario || null, estimado: false, suplente_id: r.tipo === "ajuste" ? null : (el.querySelector("#rS").value || null) };
+    el.querySelector("#rOk").setAttribute("aria-disabled", "true");
+    try {
+      if (existente) await ok(sb.from("registros").update(fila).eq("id", r.id)); else await ok(sb.from("registros").insert(fila));
+      cerrarModal(); recargar(existente ? "Cambios guardados" : "Vacaciones registradas");
+    } catch (e) { el.querySelector("#rOk").removeAttribute("aria-disabled"); el.querySelector("#rInfo").innerHTML = `<div class="aviso bad">No se guardó: ${esc(mensajeError(e))}</div>`; }
+  };
+  campos(); if (!existente) tipoVisible();
+}
+
+/* ---------- Historial (trazabilidad) ---------- */
+function enlazarHistorial(raiz) {
+  raiz.querySelectorAll("details[data-hist]").forEach(d => d.addEventListener("toggle", async () => {
+    if (!d.open || d.dataset.ok) return; d.dataset.ok = "1";
+    const box = d.querySelector(".vhist-c");
+    try {
+      const h = await ok(sb.from("historial").select("*").eq("persona_id", d.dataset.hist).order("hecho_en", { ascending: false }).limit(200));
+      box.innerHTML = h && h.length ? `<table class="vmov">${h.map(x => `<tr><td style="width:150px;white-space:nowrap">${fechaHora(x.hecho_en)}</td><td>${esc(x.hecho_por ? nombreDe(x.hecho_por) : "Sistema")}</td><td>${describirCambio(x)}</td></tr>`).join("")}</table>` : `<p class="pend" style="margin:6px 0">Aún no hay cambios registrados.</p>`;
+    } catch (e) { box.innerHTML = `<p class="err">No pude cargar el historial: ${esc(mensajeError(e))}</p>`; }
+  }));
+}
+const fechaHora = s => { const d = new Date(s); return `${d.getDate()} ${MES_C[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+function describirRegistro(r) {
+  if (!r) return "";
+  if (r.tipo === "ajuste") return `ajuste de ${Number(r.dias) > 0 ? "+" : ""}${r.dias} días${r.comentario ? ` <span style="color:var(--ink-3)">“${esc(r.comentario)}”</span>` : ""}`;
+  return `vacaciones ${rangoTxt(r.desde, r.hasta)} (${nDias(diasHabiles(r.desde, r.hasta))})${r.suplente_id ? ` · cubre ${esc(primerNombre(nombreDe(r.suplente_id)))}` : ""}${r.comentario ? ` <span style="color:var(--ink-3)">“${esc(r.comentario)}”</span>` : ""}`;
+}
+function describirCambio(x) {
+  if (x.accion === "datos") {
+    const et = { ingreso: "fecha de ingreso", extra: "años reconocidos", saldo_inicial: "saldo inicial", corte: "fecha del saldo inicial" }, a = x.antes || {}, b = x.despues || {};
+    return "Cambió " + Object.keys(et).filter(k => String(a[k]) !== String(b[k])).map(k => `${et[k]}: ${esc(a[k] ?? "—")} → <b>${esc(b[k] ?? "—")}</b>`).join(", ");
+  }
+  if (x.accion === "creó") return `Registró ${describirRegistro(x.despues)}`;
+  if (x.accion === "borró") return `<span style="color:var(--bad)">Borró</span> ${describirRegistro(x.antes)}`;
+  return `Cambió ${describirRegistro(x.antes)} → <b>${describirRegistro(x.despues)}</b>`;
+}
+
+/* ---------- Ficha de una persona (supervisor ve; super-admin edita) ---------- */
+function opcionesSupervisor(p) { const prohibidos = p.id ? descendientes(p.id) : new Set(); return PERSONAS.filter(x => x.id !== p.id && !prohibidos.has(x.id) && x.activo !== false); }
+const claveTemporal = () => { const L = "ABCDEFGHJKLMNPQRSTUVWXYZ", l = "abcdefghijkmnpqrstuvwxyz", d = "23456789", b = crypto.getRandomValues(new Uint32Array(8)), t = i => b[i]; return `${L[t(0) % L.length]}${l[t(1) % l.length]}${l[t(2) % l.length]}${l[t(3) % l.length]}-${d[t(4) % d.length]}${d[t(5) % d.length]}${d[t(6) % d.length]}${d[t(7) % d.length]}`; };
+function estadoAcceso(p) { return !p.correo ? ["", "Sin correo"] : !p.user_id ? ["warn", "Sin acceso"] : p.cambiar_clave ? ["info", "Clave temporal"] : ["ok", "Activo"]; }
+function modalPersona(id) {
+  const hoy = dHoy(), nueva = !id, admin = soyAdmin();
+  const p0 = id ? personaVac(id) : null;
+  if (!nueva && !p0) return;
+  const p = p0 ? { ...p0 } : { id: uuid(), nombre: "", correo: "", ingreso: "", extra: 0, saldo: 0, corte: hoy, activo: true, nota: "", supervisor_id: YO ? YO.id : null, admin: false };
+  const c = nueva ? null : cuentaVac(p0, hoy), sup = personaVac(p.supervisor_id);
+  const [accCls, accTxt] = estadoAcceso(p);
+  const el = modal(`<h2>${nueva ? "Agregar persona" : esc(p.nombre)}</h2>
+    ${nueva ? "" : `<p class="nota-h" style="margin:0 0 4px">${puestoDe(p.id) ? esc(puestoDe(p.id).cargo) + " · " : ""}${sup ? "Reporta a " + esc(sup.nombre) : "Sin supervisor asignado"}${p.correo ? " · " + esc(p.correo) : ""}</p>${tieneVac(p.id) ? resumenCifras(c) : `<div class="aviso" style="display:block">Su nivel no acumula vacaciones.</div>`}
+      ${c.alertas.length && tieneVac(p.id) ? `<div style="margin:10px 0 0">${c.alertas.map(([t, x]) => `<span class="vtag ${t}">${esc(x)}</span>`).join(" ")}</div>` : ""}
+      ${p.nota ? `<div class="aviso" style="display:block;margin-top:10px">${esc(p.nota)}</div>` : ""}
+      <div class="fila" style="justify-content:space-between;margin:20px 0 6px"><h3 style="margin:0;font-size:14px">Movimientos</h3>${puedoEditar(p.id) && tieneVac(p.id) ? `<button class="btn sec" id="pReg" style="padding:6px 12px;font-size:13px">+ Registrar</button>` : ""}</div>
+      ${tablaMovimientos(p0, c, hoy)}
+      <details class="vhist" data-hist="${p.id}"><summary>Historial de cambios</summary><div class="vhist-c">Cargando…</div></details>`}
+    ${admin ? `<details ${nueva ? "open" : ""} style="margin-top:16px"><summary>${nueva ? "Datos" : "Editar datos, supervisor y acceso"}</summary>
+      <label class="f">Nombre completo</label><input type="text" id="pN" value="${esc(p.nombre)}">
+      <div class="dos" style="gap:12px"><div><label class="f">Correo corporativo</label><input type="email" id="pM" value="${esc(p.correo || "")}" placeholder="nombre.apellido@empresaspolar.com"></div>
+        <div><label class="f">Reporta a</label>${puestoDe(p.id) ? `<input type="text" disabled value="${esc(sup ? sup.nombre : "—")} (según la Estructura)"><select id="pSup" hidden>` : `<select id="pSup">`}<option value="">— Sin supervisor —</option>${opcionesSupervisor(p).map(x => `<option value="${x.id}" ${x.id === p.supervisor_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></div></div>
+      <div class="dos" style="gap:12px"><div><label class="f">Fecha de ingreso</label><input type="date" id="pI" value="${p.ingreso || ""}"></div>
+        <div><label class="f" title="Antigüedad reconocida de otra empresa o acuerdo especial. Normalmente 0.">Años reconocidos extra</label><input type="number" id="pE" min="-5" max="40" step="1" value="${num(p.extra) || 0}"></div></div>
+      <div class="dos" style="gap:12px"><div><label class="f">Saldo inicial (días)</label><input type="number" id="pS" step="0.5" value="${num(p.saldo) || 0}"></div>
+        <div><label class="f">Saldo inicial al día</label><input type="date" id="pC" value="${p.corte || hoy}"></div></div>
+      <label class="f">Nota <span style="color:var(--ink-3)">la persona también puede verla</span></label><input type="text" id="pNo" value="${esc(p.nota || "")}">
+      <label class="fila" style="gap:8px;margin-top:14px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pA" ${p.activo !== false ? "checked" : ""}> Activa (desmárcala si ya no está: no podrá entrar y se oculta, pero no se borra)</label>
+      <label class="fila" style="gap:8px;margin-top:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pVe" ${p.ve_estructura || p.admin ? "checked" : ""} ${p.admin ? "disabled" : ""}> Puede ver la Estructura (organigrama con vacantes)</label>
+      <label class="fila" style="gap:8px;margin-top:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pAd" ${p.admin ? "checked" : ""} ${YO && p.id === YO.id ? "disabled" : ""}> Super-admin (ve a todos y administra personas y accesos)</label>
+      <div class="err" id="pErr"></div>
+      <div class="fila" style="justify-content:space-between;margin-top:12px">${nueva || (YO && p.id === YO.id) ? "<span></span>" : `<button class="btn peligro" id="pDel">Eliminar persona</button>`}<span class="fila"><button class="btn sec" id="pNo2">Cancelar</button><button class="btn" id="pOk">Guardar</button></span></div>
+
+    </details>
+      ${nueva ? "" : `<div class="vacceso"><div><b>Acceso al portal</b> <span class="vtag ${accCls}">${accTxt}</span><div style="font-size:12.5px;color:var(--ink-3);margin-top:3px">${!p.correo ? "Escribe su correo y guarda para poder crearle el acceso." : !p.user_id ? "Se crea con una clave temporal que la persona cambia al entrar." : "Si olvidó su clave, asígnale una temporal nueva."}</div></div>
+        ${p.correo && !(YO && p.id === YO.id) ? `<button class="btn sec" id="pAcc">${p.user_id ? "Restablecer clave" : "Crear acceso"}</button>` : ""}</div><div id="pCred"></div>`}` : ""}`, 640);
+  if (!nueva) {
+    if (el.querySelector("#pReg")) el.querySelector("#pReg").onclick = () => modalRegistro({ pid: p.id });
+    enlazarHistorial(el);
+    el.querySelectorAll("tr[data-vr]").forEach(t => t.onclick = () => modalRegistro({ id: t.dataset.vr }));
+  }
+  if (!admin) return;
+  el.querySelector("#pNo2").onclick = cerrarModal;
+  if (el.querySelector("#pDel")) el.querySelector("#pDel").onclick = async () => {
+    if (!confirm(`¿Eliminar a ${p.nombre} y todos sus registros de vacaciones? Si solo dejó el equipo, mejor desmarca “Activa”.`)) return;
+    try { await ok(sb.from("personas").delete().eq("id", p.id)); cerrarModal(); recargar("Persona eliminada"); } catch (e) { el.querySelector("#pErr").textContent = "No se eliminó: " + mensajeError(e); }
+  };
+  el.querySelector("#pOk").onclick = async () => {
+    const g = s => el.querySelector(s), err = g("#pErr");
+    const fila = { nombre: texto(g("#pN").value).replace(/\s+/g, " "), correo: texto(g("#pM").value).toLowerCase() || null, supervisor_id: g("#pSup").value || null, ingreso: g("#pI").value || null,
+      extra: num(g("#pE").value) || 0, saldo_inicial: num(g("#pS").value) || 0, corte: g("#pC").value || hoy, nota: texto(g("#pNo").value) || null, activo: g("#pA").checked, admin: g("#pAd").checked, ve_estructura: g("#pVe").checked };
+    if (!fila.nombre) return (err.textContent = "Escribe el nombre.");
+    if (fila.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fila.correo)) return (err.textContent = "Ese correo no parece válido.");
+    if (PERSONAS.some(x => x.id !== p.id && limpiar(x.nombre) === limpiar(fila.nombre))) return (err.textContent = "Ya hay alguien con ese nombre.");
+    if (fila.ingreso && fila.ingreso > hoy) return (err.textContent = "La fecha de ingreso no puede ser futura.");
+    if (YO && p.id === YO.id) { fila.admin = true; fila.activo = true; }
+    if (puestoDe(p.id)) delete fila.supervisor_id;
+    err.textContent = "Guardando…";
+    try {
+      if (nueva) await ok(sb.from("personas").insert({ id: p.id, ...fila })); else await ok(sb.from("personas").update(fila).eq("id", p.id));
+      cerrarModal(); await recargar(nueva ? "Persona agregada" : "Datos guardados");
+      const z = personaVac(p.id); if (fila.correo && z && !z.user_id) modalPersona(p.id);
+    } catch (e) { err.textContent = "No se guardó: " + mensajeError(e); }
+  };
+  if (el.querySelector("#pAcc")) el.querySelector("#pAcc").onclick = async () => {
+    const accion = p.user_id ? "clave" : "crear", clave = claveTemporal(), b = el.querySelector("#pAcc"), box = el.querySelector("#pCred");
+    if (accion === "clave" && !confirm(`¿Asignarle una clave temporal nueva a ${p.nombre}? Su clave actual dejará de funcionar.`)) return;
+    b.setAttribute("aria-disabled", "true"); box.innerHTML = `<p class="pend">Un momento…</p>`;
+    const { data, error } = await sb.functions.invoke("usuarios", { body: { accion, persona_id: p.id, clave } });
+    let msg = data && data.error; if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+    b.removeAttribute("aria-disabled");
+    if (msg || !data || !data.ok) { box.innerHTML = `<div class="aviso bad" style="display:block">${esc(msg || "No se pudo. Revisa que la función “usuarios” esté publicada en Supabase.")}</div>`; return; }
+    const txt = `Hola ${primerNombre(p.nombre)}, ya tienes acceso al ${CONFIG.NOMBRE}.\nEnlace: ${location.href.split("#")[0]}\nCorreo: ${p.correo}\nClave temporal: ${clave}\nAl entrar te pedirá crear tu propia clave.`;
+    box.innerHTML = `<div class="vcred"><b>${accion === "crear" ? "Acceso creado" : "Clave restablecida"}.</b> Envíale estos datos por un canal privado (no se vuelven a mostrar):<pre>${esc(txt)}</pre><button class="btn sec" id="pCopy">Copiar mensaje</button></div>`;
+    el.querySelector("#pCopy").onclick = async () => { try { await navigator.clipboard.writeText(txt); el.querySelector("#pCopy").textContent = "Copiado"; } catch (x) { } };
+    protegerCierre(el, () => recargar()); b.remove(); cargar().then(() => { const z = personaVac(p.id); if (z) Object.assign(p, z); });
+  };
+  if (nueva) setTimeout(() => el.querySelector("#pN").focus(), 0);
+}
+
+/* ---------- Administración ---------- */
+function vistaAdmin(m) {
+  const lista = [...PERSONAS].sort((a, b) => (b.activo !== false) - (a.activo !== false) || a.nombre.localeCompare(b.nombre, "es"));
+  const sinAcceso = PERSONAS.filter(p => p.activo !== false && !p.user_id).length;
+  const esSup = id => PERSONAS.some(x => x.supervisor_id === id && x.activo !== false);
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Personas y accesos</h1><p class="sub" style="margin-bottom:18px">Aquí defines quién está en el portal, a quién reporta cada uno y quién puede entrar. Quien tenga gente a su cargo ve y gestiona sus vacaciones automáticamente.</p></div>
+      <div class="fila no-print" style="margin-bottom:14px"><button class="btn sec" id="aImp">Importar Excel</button>${sinAcceso ? `<button class="btn sec" id="aLote">Crear accesos en lote</button>` : ""}<button class="btn sec" id="aReg">Reglas y feriados</button><button class="btn" id="aNueva">+ Agregar persona</button></div></div>
+    ${sinAcceso ? `<div class="aviso" style="display:block;margin-bottom:14px">${sinAcceso} ${sinAcceso === 1 ? "persona activa no tiene" : "personas activas no tienen"} acceso todavía. Ábrelas, escribe su correo y pulsa “Crear acceso”.</div>` : ""}
+    <div class="panel" style="padding:8px 14px"><div class="matriz"><table class="vadm"><tr><th>Nombre</th><th>Puesto</th><th>Correo</th><th>Reporta a</th><th>Ingreso</th><th>Saldo hoy</th><th>Acceso</th><th></th></tr>
+    ${lista.map(p => { const [cl, tx] = estadoAcceso(p), s = personaVac(p.supervisor_id); return `<tr class="clic${p.activo === false ? " inact" : ""}" data-vp="${p.id}">
+      <td><b style="font-weight:500">${esc(p.nombre)}</b>${p.activo === false ? ` <span class="vtag">inactiva</span>` : ""}</td><td style="font-size:12.5px;color:var(--ink-2)">${puestoDe(p.id) ? esc(puestoDe(p.id).cargo) : `<span class="vtag">sin puesto</span>`}</td><td>${esc(p.correo || "—")}</td><td>${s ? esc(s.nombre) : "—"}</td>
+      <td>${p.ingreso ? dTxt(p.ingreso) : `<span class="vtag bad">falta</span>`}</td><td class="num">${tieneVac(p.id) ? cuentaVac(p).saldo.toLocaleString("es-VE") : "—"}</td><td><span class="vtag ${cl}">${tx}</span></td>
+      <td>${p.admin ? `<span class="vtag info">Super-admin</span> ` : ""}${p.ve_estructura && !p.admin ? `<span class="vtag info">Ve estructura</span> ` : ""}${esSup(p.id) ? `<span class="vtag">Supervisor</span>` : ""}</td></tr>`; }).join("")}</table></div></div>`;
+  $("aNueva").onclick = () => modalPersona(null);
+  $("aImp").onclick = () => modalImportar();
+  if ($("aLote")) $("aLote").onclick = modalLote;
+  $("aReg").onclick = modalReglas;
+  m.querySelectorAll("[data-vp]").forEach(t => t.onclick = () => modalPersona(t.dataset.vp));
+}
+function vistaOrg(m) {
+  const activos = PERSONAS.filter(p => p.activo !== false), ids = new Set(activos.map(p => p.id));
+  const hijos = id => activos.filter(p => p.supervisor_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const raices = activos.filter(p => !p.supervisor_id || !ids.has(p.supervisor_id)).sort((a, b) => hijos(b.id).length - hijos(a.id).length || a.nombre.localeCompare(b.nombre, "es"));
+  const nodo = (p, vistos) => { if (vistos.has(p.id)) return ""; vistos.add(p.id); const h = hijos(p.id);
+    return `<li><button class="onodo" data-vp="${p.id}"><span class="av s">${esc(iniciales(p.nombre))}</span><span><b>${esc(p.nombre)}</b><small>${h.length ? `${h.length} a cargo` : ""}${p.user_id ? "" : `${h.length ? " · " : ""}sin acceso`}</small></span></button>${h.length ? `<ul>${h.map(x => nodo(x, vistos)).join("")}</ul>` : ""}</li>`; };
+  const vistos = new Set();
+  m.innerHTML = `<h1>Organigrama</h1><p class="sub">Quién reporta a quién. Cada supervisor ve y gestiona las vacaciones de todas las personas que cuelgan de él. Para mover a alguien, ábrelo y cambia “Reporta a”.</p>
+    <div class="panel"><ul class="org">${raices.map(p => nodo(p, vistos)).join("")}</ul></div>`;
+  m.querySelectorAll("[data-vp]").forEach(b => b.onclick = () => modalPersona(b.dataset.vp));
+}
+
+/* ---------- Accesos en lote ---------- */
+// Mientras hay claves en pantalla, no se cierra por accidente (clic afuera o Esc)
+function protegerCierre(el, alCerrar) {
+  document.removeEventListener("keydown", escModal);
+  el.parentElement.onclick = e => { if (e.target.classList.contains("x") && confirm("¿Ya copiaste las claves? No se vuelven a mostrar.")) { cerrarModal(); if (alCerrar) alCerrar(); } };
+}
+async function invocarUsuarios(body) {
+  const { data, error } = await sb.functions.invoke("usuarios", { body });
+  let msg = data && data.error; if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+  return msg || !data || !data.ok ? (msg || "No respondió la función “usuarios”") : null;
+}
+function modalLote() {
+  const dominio = ((YO && YO.correo) || "@empresaspolar.com").split("@")[1];
+  const sugerir = n => { const w = limpiar(n).replace(/[^a-z ]/g, "").split(" ").filter(Boolean); return w.length >= 2 ? `${w[0]}.${w[w.length - 1]}@${dominio}` : ""; };
+  const gente = PERSONAS.filter(p => p.activo !== false && !p.user_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const el = modal(`<h2>Crear accesos en lote</h2>
+    <p class="nota-h">Revisa el correo de cada persona (te sugiero nombre.apellido cuando falta: corrígelo si es distinto). Se crea un acceso con clave temporal para cada persona marcada.</p>
+    <div style="max-height:50vh;overflow:auto"><table class="vmov"><tr><th style="width:30px"></th><th>Nombre</th><th>Correo corporativo</th></tr>
+    ${gente.map(p => `<tr><td><input type="checkbox" class="chk" data-l="${p.id}" ${p.correo ? "checked" : ""}></td><td>${esc(p.nombre)}</td><td><input type="email" data-lm="${p.id}" value="${esc(p.correo || sugerir(p.nombre))}" style="width:100%;padding:6px 9px;border:1px solid #cbd2de;border-radius:6px"></td></tr>`).join("")}</table></div>
+    <div class="err" id="lErr2"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px"><label class="fila" style="gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="lTodos"> Marcar todas</label><span class="fila"><button class="btn sec" id="lNo">Cancelar</button><button class="btn" id="lOk">Crear accesos</button></span></div>
+    <div id="lRes"></div>`, 760);
+  el.querySelector("#lTodos").onchange = e => el.querySelectorAll("[data-l]").forEach(c => c.checked = e.target.checked);
+  el.querySelector("#lNo").onclick = cerrarModal;
+  el.querySelector("#lOk").onclick = async () => {
+    const elegidas = [...el.querySelectorAll("[data-l]:checked")].map(c => ({ p: personaVac(c.dataset.l), correo: texto(el.querySelector(`[data-lm="${c.dataset.l}"]`).value).toLowerCase() }));
+    const malo = elegidas.find(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x.correo));
+    if (!elegidas.length) return (el.querySelector("#lErr2").textContent = "Marca al menos una persona.");
+    if (malo) return (el.querySelector("#lErr2").textContent = `Revisa el correo de ${malo.p.nombre}.`);
+    const b = el.querySelector("#lOk"); b.setAttribute("aria-disabled", "true");
+    const res = [];
+    for (const [i, x] of elegidas.entries()) {
+      el.querySelector("#lErr2").textContent = `Creando ${i + 1} de ${elegidas.length}…`;
+      let error = null, clave = claveTemporal();
+      try { if (x.correo !== (x.p.correo || "")) await ok(sb.from("personas").update({ correo: x.correo }).eq("id", x.p.id)); error = await invocarUsuarios({ accion: "crear", persona_id: x.p.id, clave }); }
+      catch (e) { error = mensajeError(e); }
+      res.push({ nombre: x.p.nombre, correo: x.correo, clave: error ? "" : clave, error });
+    }
+    el.querySelector("#lErr2").textContent = "";
+    const bien = res.filter(r => !r.error), enlace = location.href.split("#")[0];
+    const tabla = "Nombre\tCorreo\tClave temporal\n" + bien.map(r => `${r.nombre}\t${r.correo}\t${r.clave}`).join("\n");
+    el.querySelector("#lRes").innerHTML = `<div class="vcred"><b>${bien.length} ${bien.length === 1 ? "acceso creado" : "accesos creados"}.</b> Copia las claves ahora: no se vuelven a mostrar. Envía a cada persona la suya por un canal privado junto con el enlace del portal (${esc(enlace)}).
+      <table class="vmov" style="margin:8px 0 10px;background:#fff">${res.map(r => `<tr><td>${esc(r.nombre)}</td><td>${esc(r.correo)}</td><td>${r.error ? `<span class="vtag bad">${esc(r.error)}</span>` : `<code>${esc(r.clave)}</code>`}</td></tr>`).join("")}</table>
+      <button class="btn sec" id="lCopy">Copiar tabla</button></div>`;
+    el.querySelector("#lCopy").onclick = async () => { try { await navigator.clipboard.writeText(tabla); el.querySelector("#lCopy").textContent = "Copiada"; } catch (x) { } };
+    b.style.display = "none"; el.querySelector("#lNo").textContent = "Cerrar"; el.querySelector("#lNo").onclick = () => { cerrarModal(); recargar("Accesos creados"); };
+    protegerCierre(el, () => recargar("Accesos creados"));
+  };
+}
+
+/* ---------- Reglas y feriados (super-admin) ---------- */
+function modalReglas() {
+  const y = +dHoy().slice(0, 4); VV.ferY ||= y;
+  const guardarReglas = async extra => { await ok(sb.from("reglas").update({ base: VAC.reglas.base, inc: VAC.reglas.inc, tope: VAC.reglas.tope, feriados_extra: extra }).eq("id", 1)); VAC.feriadosExtra = extra; };
+  const dibujar = () => {
+    const el = modal(`<h2>Reglas y feriados</h2>
+      <p class="nota-h">Días por año según la LOTTT (art. 190): 15 al cumplir el primer año, +1 por cada año adicional, hasta un tope. Aplica para todo el portal.</p>
+      <div class="dos" style="grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div><label class="f">Días el 1er año</label><input type="number" id="gB" value="${VAC.reglas.base}"></div>
+        <div><label class="f">+ por año extra</label><input type="number" id="gI" step="0.5" value="${VAC.reglas.inc}"></div>
+        <div><label class="f">Tope por año</label><input type="number" id="gT" value="${VAC.reglas.tope}"></div></div>
+      <h3 style="font-size:14px;margin:22px 0 4px">Feriados nacionales</h3>
+      <p class="nota-h" style="margin-bottom:8px">Se calculan solos cada año (fijos de la LOTTT + Carnaval y Semana Santa). Agrega los días no laborables que decrete el Ejecutivo.</p>
+      <div class="toggle" id="gY">${[y, y + 1].map(a => `<button data-y="${a}" class="${a === VV.ferY ? "on" : ""}">${a}</button>`).join("")}</div>
+      <table class="vmov" style="margin-top:8px">${feriadosDe(VV.ferY).map(f => `<tr><td style="width:120px">${dTxt(f.fecha, false)} <span style="color:var(--ink-3)">${["dom", "lun", "mar", "mié", "jue", "vie", "sáb"][dDow(f.fecha)]}</span></td><td>${esc(f.nombre)}</td><td class="num">${f.fijo ? "" : `<button class="btn peligro" style="padding:0" data-fdel="${f.fecha}">Quitar</button>`}</td></tr>`).join("")}</table>
+      <div class="fila" style="margin-top:10px;flex-wrap:nowrap"><input type="date" id="gF" style="width:170px"><input type="text" id="gFN" placeholder="Ej.: Día no laborable por decreto"><button class="btn sec" id="gAdd" style="white-space:nowrap">Agregar</button></div>
+      <div class="err" id="gErr"></div>
+      <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="gNo">Cerrar</button><button class="btn" id="gOk">Guardar reglas</button></div>`, 600);
+    const err = t => el.querySelector("#gErr").textContent = t;
+    el.querySelector("#gY").onclick = e => { const b = e.target.closest("[data-y]"); if (b) { VV.ferY = +b.dataset.y; dibujar(); } };
+    el.querySelectorAll("[data-fdel]").forEach(b => b.onclick = async () => { try { await guardarReglas(VAC.feriadosExtra.filter(f => f.fecha !== b.dataset.fdel)); estado("Feriado quitado"); dibujar(); } catch (e) { err("No se guardó: " + mensajeError(e)); } });
+    el.querySelector("#gAdd").onclick = async () => {
+      const f = el.querySelector("#gF").value, n = texto(el.querySelector("#gFN").value) || "Día no laborable";
+      if (!f) return err("Elige la fecha."); if (FER().has(f)) return err("Esa fecha ya es feriado.");
+      try { await guardarReglas([...VAC.feriadosExtra, { fecha: f, nombre: n }]); VV.ferY = +f.slice(0, 4); estado("Feriado agregado"); dibujar(); } catch (e) { err("No se guardó: " + mensajeError(e)); }
+    };
+    el.querySelector("#gNo").onclick = () => { cerrarModal(); pintar(); };
+    el.querySelector("#gOk").onclick = async () => {
+      const b = num(el.querySelector("#gB").value), i = num(el.querySelector("#gI").value), t = num(el.querySelector("#gT").value);
+      if (b == null || i == null || t == null || b <= 0 || t < b) return err("Revisa los números: el tope no puede ser menor que los días del primer año.");
+      const antes = { ...VAC.reglas }; VAC.reglas = { base: b, inc: i, tope: t };
+      try { await guardarReglas(VAC.feriadosExtra); cerrarModal(); recargar("Reglas guardadas"); } catch (e) { VAC.reglas = antes; err("No se guardó: " + mensajeError(e)); }
+    };
+  };
+  dibujar();
+}
+
+/* ---------- Importar el Excel semanal (super-admin) ---------- */
+async function leerArchivoVac(file, errEl) {
+  errEl.textContent = "Leyendo…";
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    let res = null;
+    for (const n of wb.SheetNames) { res = leerVacExcel(filasDe(wb.Sheets[n]), dHoy()); if (res) break; }
+    if (!res) { errEl.textContent = "No reconocí el formato: busco una columna “Nombre”, otra de “Fecha ingreso” y columnas con las fechas de cada semana."; return; }
+    errEl.textContent = ""; modalImportar(res);
+  } catch (e) { errEl.textContent = "No pude abrir ese archivo: " + mensajeError(e); }
+}
+function modalImportar(res) {
+  if (!res) {
+    const el = modal(`<h2>Importar Excel de vacaciones</h2><p class="nota-h">Lee el Excel semanal (una fila por persona y una columna por semana). Las personas que ya están en el portal se actualizan por nombre; las nuevas se agregan reportándote a ti (luego ajustas su supervisor).</p>
+      <div id="drop" role="button" tabindex="0"><b>Arrastra aquí el Excel</b><br><span style="color:var(--ink-3);font-size:13px">o haz clic para elegirlo</span></div><input type="file" id="vFile2" accept=".xlsx,.xls" hidden><div class="err" id="vErr2"></div>`);
+    prepararDrop(el.querySelector("#drop"), el.querySelector("#vFile2"), f => leerArchivoVac(f, el.querySelector("#vErr2")));
+    return;
+  }
+  const hoy = dHoy(), copia = VAC; VAC = { ...VAC, personas: res.personas, registros: res.registros };
+  const filas = res.personas.map(p => ({ p, c: cuentaVac(p, hoy), ex: PERSONAS.find(x => mismaPersona(x.nombre, p.nombre)) }));
+  VAC = copia;
+  const el = modal(`<h2>Esto es lo que leí</h2>
+    <p class="nota-h">${res.personas.length} personas. Saldos al ${dTxt(res.corte)} (última semana cerrada del Excel). Las vacaciones posteriores quedan con fechas estimadas desde el lunes de cada semana: cada persona podrá confirmarlas.</p>
+    <div style="max-height:52vh;overflow:auto"><table class="vmov"><tr><th>Colaborador</th><th>Ingreso</th><th class="num">Saldo al corte</th><th class="num">Planificadas</th><th class="num">Hoy</th><th></th></tr>
+    ${filas.map(({ p, c, ex }) => `<tr><td><b style="font-weight:500">${esc(p.nombre)}</b>${p.nota ? `<div style="font-size:12px;color:var(--warn)">${esc(p.nota)}</div>` : ""}</td><td>${p.ingreso ? dTxt(p.ingreso) : "—"}</td><td class="num">${p.saldo}</td><td class="num">${c.vac.length ? c.vac.reduce((s, r) => s + r.n, 0) : ""}</td><td class="num"><b>${c.saldo}</b></td><td><span class="vtag ${ex ? "" : "info"}">${ex ? "se actualiza" : "nueva"}</span></td></tr>`).join("")}</table></div>
+    <div class="err" id="iErr"></div>
+    <div class="fila" style="justify-content:flex-end;margin-top:16px"><button class="btn sec" id="iNo">Cancelar</button><button class="btn" id="iOk">Importar</button></div>`, 760);
+  el.querySelector("#iNo").onclick = cerrarModal;
+  el.querySelector("#iOk").onclick = async () => {
+    const b = el.querySelector("#iOk"); b.setAttribute("aria-disabled", "true"); el.querySelector("#iErr").textContent = "Importando…";
+    try {
+      const nuevas = [], mapa = {};
+      for (const { p, ex } of filas) {
+        const datos = { ingreso: p.ingreso || null, extra: p.extra || 0, saldo_inicial: p.saldo || 0, corte: p.corte, nota: p.nota || null };
+        if (ex) {
+          mapa[p.id] = ex.id;
+          await ok(sb.from("personas").update(datos).eq("id", ex.id));
+          await ok(sb.from("registros").delete().eq("persona_id", ex.id).eq("estimado", true));
+        } else { mapa[p.id] = p.id; nuevas.push({ id: p.id, nombre: p.nombre, supervisor_id: YO ? YO.id : null, ...datos }); }
+      }
+      if (nuevas.length) await ok(sb.from("personas").insert(nuevas));
+      const regs = res.registros.map(r => ({ persona_id: mapa[r.pid], tipo: "vac", desde: r.desde, hasta: r.hasta, comentario: r.comentario, estimado: true }));
+      if (regs.length) await ok(sb.from("registros").insert(regs));
+      cerrarModal(); S.vista = "admin"; recargar("Excel importado");
+    } catch (e) { b.removeAttribute("aria-disabled"); el.querySelector("#iErr").textContent = "No se completó: " + mensajeError(e); }
+  };
+}
+
+/* ---------- Descargar en Excel (lo que tú puedes ver) ---------- */
+function exportarVac() {
+  const hoy = dHoy(), visibles = PERSONAS.filter(p => (gestiono(p.id) || (YO && p.id === YO.id)) && tieneVac(p.id));
+  const gente = visibles.map(p => ({ p, c: cuentaVac(p, hoy) })).sort((a, b) => a.p.nombre.localeCompare(b.p.nombre, "es"));
+  const saldos = gente.map(({ p, c }) => ({ "Colaborador": p.nombre, "Reporta a": (personaVac(p.supervisor_id) || {}).nombre || "", "Activo": p.activo !== false ? "Sí" : "No", "Fecha de ingreso": p.ingreso || "", "Años de servicio": p.ingreso ? c.anios : "", "Días por año": c.anual,
+    "Saldo inicial": num(p.saldo) || 0, "Saldo inicial al": p.corte || "", "Disponibles hoy": c.saldo, "Planificados": c.plan, "Quedan después": c.despues,
+    "Próximo aniversario": c.prox ? c.prox.fecha : "", "Días que suma": c.prox ? c.prox.dias : "", "Alertas": c.alertas.map(a => a[1]).join(" · ") }));
+  const ids = new Set(visibles.map(p => p.id));
+  const reg = VAC.registros.filter(r => ids.has(r.pid)).map(r => ({ "Colaborador": (personaVac(r.pid) || {}).nombre || "", "Tipo": r.tipo === "ajuste" ? "Ajuste" : "Vacaciones", "Desde": r.desde, "Hasta": r.tipo === "ajuste" ? "" : r.hasta,
+    "Días hábiles": r.tipo === "ajuste" ? num(r.dias) : diasHabiles(r.desde, r.hasta), "Estado": r.tipo === "ajuste" ? "" : r.desde > hoy ? "Planificada" : r.hasta < hoy ? "Disfrutada" : "En curso", "Fechas por confirmar": r.estimado ? "Sí" : "", "Comentario": r.comentario || "" }))
+    .sort((a, b) => a.Desde.localeCompare(b.Desde) || a.Colaborador.localeCompare(b.Colaborador));
+  const wb = XLSX.utils.book_new(), hoja = (d, w) => { const s = XLSX.utils.json_to_sheet(d.length ? d : [{ "": "Sin datos" }]); s["!cols"] = w.map(wch => ({ wch })); return s; };
+  XLSX.utils.book_append_sheet(wb, hoja(saldos, [26, 24, 7, 14, 10, 10, 11, 14, 13, 12, 13, 16, 11, 40]), "Saldos");
+  XLSX.utils.book_append_sheet(wb, hoja(reg, [26, 11, 12, 12, 11, 12, 12, 50]), "Registro");
+  XLSX.writeFile(wb, `Vacaciones_${hoy}.xlsx`);
+}
+
+iniciar();
+
+</script>
+</body>
+</html>
