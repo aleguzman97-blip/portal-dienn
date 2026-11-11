@@ -414,7 +414,7 @@ function cuentaVac(p, hoy = dHoy()) {
   const vac = regs.filter(r => r.tipo !== "ajuste").map(r => ({ ...r, n: diasHabiles(r.desde, r.hasta) })).sort((a, b) => a.desde.localeCompare(b.desde));
   const ajustes = regs.filter(r => r.tipo === "ajuste").sort((a, b) => a.desde.localeCompare(b.desde));
   const abonos = [];
-  if (p.ingreso && p.activo !== false) {
+  if (p.ingreso && p.activo !== false && !p.sinAcum) {
     const y0 = +p.ingreso.slice(0, 4);
     for (let y = Math.max(y0 + 1, +corte.slice(0, 4)); y <= +hoy.slice(0, 4); y++) { const a = aniversario(p, y); if (a > corte && a <= hoy) abonos.push({ fecha: a, dias: diasPorAnio(p, y - y0) }); }
   }
@@ -424,16 +424,19 @@ function cuentaVac(p, hoy = dHoy()) {
   const saldo = (num(p.saldo) || 0) + suma(abonos, a => a.dias) + ajusteHoy - suma(tomadas, r => r.n);
   const plan = suma(planificadas, r => r.n);
   let prox = null;
-  if (p.ingreso && p.ingreso <= hoy) { const y0 = +p.ingreso.slice(0, 4); let y = +hoy.slice(0, 4); if (aniversario(p, y) <= hoy) y++; prox = { fecha: aniversario(p, y), dias: diasPorAnio(p, y - y0) }; }
+  if (p.ingreso && p.ingreso <= hoy && !p.sinAcum) { const y0 = +p.ingreso.slice(0, 4); let y = +hoy.slice(0, 4); if (aniversario(p, y) <= hoy) y++; prox = { fecha: aniversario(p, y), dias: diasPorAnio(p, y - y0) }; }
   const anios = aniosServicio(p, hoy), anual = p.ingreso ? diasPorAnio(p, Math.max(1, anios)) : VAC.reglas.base;
   const fuera = vac.find(r => r.desde <= hoy && r.hasta >= hoy);
   const alertas = [];
-  if (!p.ingreso) alertas.push(["bad", "Falta fecha de ingreso"]);
-  const finPlan = planificadas.reduce((m, r) => r.hasta > m ? r.hasta : m, hoy);
-  if (saldo - plan < 0 && saldoAl(p, finPlan) < 0) alertas.push(["bad", "Planificó más días de los que tiene"]);
-  else if (saldo > 2 * anual) alertas.push(["warn", "Acumula más de 2 años"]);
+  if (!p.sinAcum) {
+    if (!p.ingreso) alertas.push(["bad", "Falta fecha de ingreso"]);
+    const finPlan = planificadas.reduce((m, r) => r.hasta > m ? r.hasta : m, hoy);
+    if (saldo - plan < 0 && saldoAl(p, finPlan) < 0) alertas.push(["bad", "Planificó más días de los que tiene"]);
+    else if (saldo > 2 * anual) alertas.push(["warn", "Acumula más de 2 años"]);
+  }
+  const anioHoy = hoy.slice(0, 4), tomadosAnio = suma(vac.filter(r => r.desde.slice(0, 4) === anioHoy && r.desde <= hoy), r => r.n);
   const porConfirmar = vac.filter(r => r.estimado && r.hasta >= hoy).length;
-  return { porConfirmar, saldo, plan, despues: saldo - plan, abonos, tomadas, planificadas, ajustes, vac, prox, anios, anual, fuera, alertas, corte };
+  return { sinAcum: !!p.sinAcum, tomadosAnio, porConfirmar, saldo, plan, despues: saldo - plan, abonos, tomadas, planificadas, ajustes, vac, prox, anios, anual, fuera, alertas, corte };
 }
 const nDias = n => `${n.toLocaleString("es-VE")} ${Math.abs(n) === 1 ? "día" : "días"}`;
 const personaVac = id => VAC.personas.find(p => p.id === id);
@@ -452,6 +455,13 @@ function modal(html, ancho = 520) {
 }
 const VV = { mes: null };
 function tarjetaVac({ p, c }) {
+  if (c.sinAcum) return `<div class="vcard" data-vp="${p.id}" role="button" tabindex="0">
+    <div class="vc-top"><span class="av s">${esc(iniciales(p.nombre))}</span><div><b>${esc(p.nombre)}</b><span>Sin días oficiales (se otorgan)</span></div></div>
+    <div class="vc-num"><b>${c.tomadosAnio.toLocaleString("es-VE")}</b><span>${c.tomadosAnio === 1 ? "día tomado" : "días tomados"} en ${dHoy().slice(0, 4)}</span></div>
+    <div class="vc-meta">${c.plan ? `${nDias(c.plan)} planificados` : "Nada planificado"}</div>
+    ${c.fuera ? `<div class="vc-tags"><span class="vtag ok">De vacaciones hasta el ${dTxt(c.fuera.hasta, false)}</span></div>` : ""}
+    <div class="vc-pie no-print">${c.porConfirmar ? `<span>${c.porConfirmar} por confirmar</span>` : "<span></span>"}<button class="vc-btn" data-vreg="${p.id}">+ Registrar</button></div>
+  </div>`;
   const pos = Math.max(0, c.saldo), planW = pos ? Math.min(100, c.plan / pos * 100) : (c.plan ? 100 : 0);
   const estadoHoy = c.fuera ? `<span class="vtag ok">De vacaciones hasta el ${dTxt(c.fuera.hasta, false)}</span>` : "";
   const al = c.alertas.map(([t, x]) => `<span class="vtag ${t}">${esc(x)}</span>`).join("");
@@ -519,14 +529,14 @@ function leerVacExcel(R, hoy) {
 let DIR = [], NIVELES = [], PUESTOS = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
 const EQ = { fecha: null, zoom: null, modo: "proyecto" };
 const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
-const COLORES_PROY = ["#2a55d0", "#0f7b5f", "#c48a12", "#c2413a", "#7b4bc2", "#1d8a73", "#d0662a", "#4a5672"];
-const ROLES = ["Líder", "Co-líder", "Miembro"];
+const COLORES_PROY = ["#e3a21a", "#2a55d0", "#6b7280", "#d0662a", "#2e9e6e", "#5b8fd6", "#1f9aa8", "#2b5ea7", "#4a5672", "#c2413a", "#7b4bc2"];
+const ROLES = ["Líder", "Co-líder", "Gerente", "Apoyo", "Miembro", "Pasante"];
 const nivel = id => NIVELES.find(n => n.id === id);
 const dirDe = pid => DIR.find(d => d.id === pid);
 const cargoDe = d => d ? [d.cargo, d.encargado_de ? "encargado/a de " + d.encargado_de : ""].filter(Boolean).join(" · ") : "";
 const nombreDe = pid => (dirDe(pid) || personaVac(pid) || {}).nombre || "—";
 const puestoDe = pid => PUESTOS.find(p => p.persona_id === pid);
-function tieneVac(pid) { const d = dirDe(pid), n = d && d.nivel_id ? nivel(d.nivel_id) : null; return !n || n.vacaciones !== false; }
+function acumula(pid) { const d = dirDe(pid), n = d && d.nivel_id ? nivel(d.nivel_id) : null; return !n || n.vacaciones !== false; }
 const tokens = n => limpiar(n).replace(/[^a-z ]/g, "").split(" ").filter(Boolean);
 function mismaPersona(a, b) { const x = tokens(a), y = tokens(b); if (!x.length || !y.length || x[0] !== y[0]) return false; const [c, l] = x.length <= y.length ? [x, y] : [y, x]; return c.every(t => l.includes(t)); }
 
@@ -672,7 +682,7 @@ function modalPuesto(id) {
 }
 function modalNiveles() {
   const el = modal(`<h2>Niveles y permisos</h2><p class="nota-h">Qué permite cada nivel. El nivel de cada persona sale del puesto que ocupa. Quién ve la estructura se decide persona por persona (en su ficha). Tú, como super-admin, siempre puedes todo.</p>
-    <table class="vmov"><tr><th>Nivel</th><th style="text-align:center">Gestiona proyectos</th><th style="text-align:center">Acumula vacaciones</th></tr>
+    <table class="vmov"><tr><th>Nivel</th><th style="text-align:center">Gestiona proyectos</th><th style="text-align:center">Acumula días oficiales</th></tr>
     ${NIVELES.map(n => `<tr><td>${esc(n.nombre)}</td>${["gestiona_proyectos", "vacaciones"].map(k => `<td style="text-align:center"><input type="checkbox" class="chk" data-n="${n.id}" data-k="${k}" ${n[k] ? "checked" : ""}></td>`).join("")}</tr>`).join("")}</table>
     <div class="err" id="nErr"></div><div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="nNo">Cancelar</button><button class="btn" id="nOk">Guardar</button></div>`, 620);
   el.querySelector("#nNo").onclick = cerrarModal;
@@ -686,6 +696,26 @@ function modalNiveles() {
 
 /* Estructura actual (presentación “Estructura Actual”, noviembre 2026) */
 const ESTRUCTURA_INICIAL = [];  // la estructura se carga una sola vez con el archivo de carga inicial
+/* Frentes (presentación “Reorganización DIENN por Hunting Zones”, láminas 5 y 6) */
+const PROYECTOS_INICIALES = [];
+async function cargarProyectosIniciales() {
+  const nuevas = [], idDe = {};
+  for (const [, , , ms] of PROYECTOS_INICIALES) for (const [nom] of ms) {
+    if (idDe[nom]) continue;
+    const ex = PERSONAS.find(p => mismaPersona(p.nombre, nom)) || nuevas.find(p => p.nombre === nom);
+    if (ex) idDe[nom] = ex.id; else { const id = uuid(); nuevas.push({ id, nombre: nom, corte: dHoy() }); idDe[nom] = id; }
+  }
+  if (nuevas.length) await ok(sb.from("personas").insert(nuevas));
+  const existentes = new Set(PROY.map(p => limpiar(p.nombre))), proys = [], miembros = [];
+  PROYECTOS_INICIALES.forEach(([nombre, desc, color, ms], i) => {
+    if (existentes.has(limpiar(nombre))) return;
+    const id = uuid(); proys.push({ id, nombre, descripcion: desc, color, orden: PROY.length + i });
+    ms.forEach(([nom, rol]) => miembros.push({ proyecto_id: id, persona_id: idDe[nom], rol }));
+  });
+  if (proys.length) await ok(sb.from("proyectos").insert(proys));
+  if (miembros.length) await ok(sb.from("proyecto_miembros").insert(miembros));
+  return { proyectos: proys.length, nuevas: nuevas.map(p => p.nombre) };
+}
 async function cargarSemilla(errEl) {
   errEl.textContent = "Cargando…";
   try {
@@ -704,7 +734,9 @@ async function cargarSemilla(errEl) {
     filas.find(f => f.id === ids["gc"]).encargado_id = kat || null;
     await ok(sb.from("puestos").insert(filas));
     for (const k of ["dir", "kr"]) if (persona[k]) await ok(sb.from("personas").update({ ve_estructura: true }).eq("id", persona[k]));
-    recargar(`Estructura cargada${nuevas.length ? ` (${nuevas.length} personas nuevas)` : ""}`);
+    let extra = "";
+    if (PROYECTOS_INICIALES.length && !PROY.length) { await recargar(); const r = await cargarProyectosIniciales(); extra = ` y ${r.proyectos} frentes`; }
+    recargar(`Estructura${extra} cargados${nuevas.length ? ` (${nuevas.length} personas nuevas)` : ""}`);
   } catch (e) { errEl.textContent = "No se completó: " + mensajeError(e); }
 }
 
@@ -722,7 +754,8 @@ async function vistaProyectos(m) {
         <div class="pc-n">${ms.length} ${ms.length === 1 ? "persona" : "personas"}</div>
         <ul class="pc-m">${ms.map(x => { const d = dirDe(x.persona_id) || {}, a = ausDe(x.persona_id); return `<li><span class="av s">${esc(iniciales(d.nombre || "?"))}</span><span><b>${esc(d.nombre || "—")}</b><small>${esc(cargoDe(d))}</small>${a ? `<small class="aus">${textoAus(a)}</small>` : ""}</span>${x.rol !== "Miembro" ? `<span class="vtag info">${esc(x.rol)}</span>` : ""}</li>`; }).join("") || `<li class="vacio" style="font-size:13px">Sin personas asignadas</li>`}</ul></div>`; }).join("")}
         ${editor ? `<button class="pcard padd" id="pNuevo2"><span>+</span>Nuevo proyecto</button>` : ""}</div>
-        ${!PROY.length && !editor ? `<div class="panel vacio">Aún no hay proyectos.</div>` : ""}`
+        ${!PROY.length && !editor ? `<div class="panel vacio">Aún no hay proyectos.</div>` : ""}
+        ${!PROY.length && soyAdmin() && PROYECTOS_INICIALES.length ? `<div class="panel" style="max-width:720px;margin-top:14px"><h2>Cargar los frentes de la reorganización</h2><p class="nota-h">Crea las 5 Hunting Zones y las 4 áreas de apoyo con sus líderes y equipos.</p><button class="btn" id="pSemilla">Cargar frentes</button><div class="err" id="pErr"></div></div>` : ""}`
     : `<div class="panel" style="padding:8px 14px"><table class="vadm"><tr><th>Persona</th><th>Cargo</th><th>Proyectos</th></tr>
         ${gente.map(d => { const ps = MIEMB.filter(x => x.persona_id === d.id).map(x => ({ ...x, pr: PROY.find(z => z.id === x.proyecto_id) })).filter(x => x.pr);
           return `<tr class="${editor ? "clic" : ""}" ${editor ? `data-pper="${d.id}"` : ""}><td><b style="font-weight:500">${esc(d.nombre)}</b></td><td style="color:var(--ink-2)">${esc(cargoDe(d) || "—")}</td><td>${ps.map(x => `<span class="pchip" style="--pc:${esc(x.pr.color)}">${esc(x.pr.nombre)}${x.rol !== "Miembro" ? " · " + esc(x.rol) : ""}</span>`).join(" ") || `<span class="vtag warn">Sin proyecto</span>`}</td></tr>`; }).join("")}</table></div>
@@ -730,6 +763,7 @@ async function vistaProyectos(m) {
   $("pModo").onclick = e => { const b = e.target.closest("[data-m]"); if (b) { EQ.modo = b.dataset.m; vistaProyectos(m); } };
   if (editor) { $("pNuevo").onclick = () => modalProyecto(null); if ($("pNuevo2")) $("pNuevo2").onclick = () => modalProyecto(null); }
   m.querySelectorAll("[data-ped]").forEach(b => b.onclick = () => modalProyecto(b.dataset.ped));
+  if ($("pSemilla")) $("pSemilla").onclick = async () => { $("pErr").textContent = "Cargando…"; try { const r = await cargarProyectosIniciales(); recargar(`${r.proyectos} frentes cargados${r.nuevas.length ? " · nuevas: " + r.nuevas.join(", ") : ""}`); } catch (e) { $("pErr").textContent = "No se completó: " + mensajeError(e); } };
   m.querySelectorAll("[data-pper]").forEach(t => t.onclick = () => modalAsignar(t.dataset.pper));
 }
 function modalProyecto(id) {
@@ -809,6 +843,7 @@ async function cargar() {
   GEST = soyAdmin() ? new Set(PERSONAS.map(x => x.id).filter(id => !YO || id !== YO.id)) : YO ? descendientes(YO.id) : new Set();
   EQ_CAL = e || [];
   await cargarEquipo();
+  PERSONAS.forEach(p => p.sinAcum = !acumula(p.id));
 }
 async function recargar(msg) { try { await cargar(); if (msg) estado(msg); } catch (e) { estado("No se pudo actualizar", true); } armar(); }
 
@@ -872,8 +907,8 @@ function armar() {
   $("app").innerHTML = `<div class="shell"><aside>
       <div class="marca">${esc(CONFIG.NOMBRE)}</div><div class="ciclo">Hola, ${esc(primerNombre(YO.nombre))}</div>
       <div class="grupo">Vacaciones</div>
-      ${tieneVac(YO.id) ? `<button class="nav" data-v="mias">Mis vacaciones</button>` : ""}
-      <button class="nav" data-v="equipo">Todo el equipo<span class="cnt">${PERSONAS.filter(p => p.activo !== false && tieneVac(p.id)).length}</span></button>
+      <button class="nav" data-v="mias">Mis vacaciones</button>
+      <button class="nav" data-v="equipo">Todo el equipo<span class="cnt">${PERSONAS.filter(p => p.activo !== false).length}</span></button>
       <div class="grupo">Equipo</div>
       <button class="nav" data-v="proyectos">Proyectos</button>
       ${PERM.estructura ? `<button class="nav" data-v="estructura">Estructura</button>` : ""}
@@ -887,7 +922,6 @@ function armar() {
 function pintar() {
   cerrarModal();
   if ((S.vista === "admin" && !soyAdmin()) || (S.vista === "estructura" && !PERM.estructura) || S.vista === "org") S.vista = "mias";
-  if (S.vista === "mias" && !tieneVac(YO.id)) S.vista = "equipo";
   document.querySelectorAll("aside [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === S.vista));
   const m = $("main");
   if (S.vista === "equipo") vistaEquipo(m);
@@ -902,21 +936,21 @@ function pintar() {
 /* ---------- Movimientos de una persona ---------- */
 function tablaMovimientos(p, c, hoy) {
   const mov = [
-    { f: c.corte, t: "Saldo inicial", d: num(p.saldo) || 0, ini: true },
+    ...(c.sinAcum ? [] : [{ f: c.corte, t: "Saldo inicial", d: num(p.saldo) || 0, ini: true }]),
     ...c.abonos.map(a => ({ f: a.fecha, t: "Aniversario", d: a.dias })),
     ...c.ajustes.map(a => ({ f: a.desde, t: "Ajuste" + (a.comentario ? ": " + a.comentario : ""), d: num(a.dias) || 0, cls: a.desde > hoy ? "fut" : "", id: a.id })),
-    ...c.vac.filter(r => r.desde > c.corte).map(r => ({ f: r.desde, t: `Vacaciones ${rangoTxt(r.desde, r.hasta)}${r.estimado ? " · fechas por confirmar" : ""}${r.comentario && !r.estimado ? " · " + r.comentario : ""}${r.suplente_id ? " · lo cubre " + nombreDe(r.suplente_id) : ""}`, d: -r.n, cls: r.desde > hoy ? "fut" : r.hasta >= hoy ? "ahora" : "", id: r.id }))
+    ...c.vac.filter(r => c.sinAcum || r.desde > c.corte).map(r => ({ f: r.desde, t: `Vacaciones ${rangoTxt(r.desde, r.hasta)}${r.estimado ? " · fechas por confirmar" : ""}${r.comentario && !r.estimado ? " · " + r.comentario : ""}${r.suplente_id ? " · lo cubre " + nombreDe(r.suplente_id) : ""}`, d: -r.n, cls: r.desde > hoy ? "fut" : r.hasta >= hoy ? "ahora" : "", id: r.id }))
   ].sort((a, b) => a.f.localeCompare(b.f));
   return `<table class="vmov">${mov.map(x => `<tr class="${x.cls || ""}${x.id ? " clic" : ""}" ${x.id ? `data-vr="${x.id}"` : ""}><td style="width:110px">${dTxt(x.f)}</td><td>${esc(x.t)}${x.cls === "fut" ? ` <span class="vtag info">planificado</span>` : x.cls === "ahora" ? ` <span class="vtag ok">en curso</span>` : ""}</td><td class="num ${x.ini ? "" : x.d > 0 ? "mas" : ""}">${x.ini ? x.d : (x.d > 0 ? "+" : "") + x.d.toLocaleString("es-VE")}</td></tr>`).join("")}
-    <tr class="tot"><td></td><td>Después de lo planificado</td><td class="num">${c.despues.toLocaleString("es-VE")}</td></tr></table>`;
+    ${c.sinAcum ? (mov.length ? "" : `<tr><td colspan="3" class="vacio">Aún no hay vacaciones registradas.</td></tr>`) : `<tr class="tot"><td></td><td>Después de lo planificado</td><td class="num">${c.despues.toLocaleString("es-VE")}</td></tr>`}</table>`;
 }
-const resumenCifras = c => `<div class="vresumen"><div><b class="${c.saldo < 0 ? "neg" : ""}">${c.saldo.toLocaleString("es-VE")}</b><span>disponibles hoy</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b class="${c.despues < 0 ? "neg" : ""}">${c.despues.toLocaleString("es-VE")}</b><span>quedan después</span></div><div><b>${c.prox ? "+" + c.prox.dias : "—"}</b><span>${c.prox ? "el " + dTxt(c.prox.fecha) : "próximo aniversario"}</span></div></div>`;
+const resumenCifras = c => c.sinAcum ? `<div class="vresumen" style="grid-template-columns:repeat(3,1fr)"><div><b>${c.tomadosAnio.toLocaleString("es-VE")}</b><span>tomados en ${dHoy().slice(0, 4)}</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b style="font-size:15px;padding-top:6px">Sin días oficiales</b><span>se otorgan por acuerdo</span></div></div>` : `<div class="vresumen"><div><b class="${c.saldo < 0 ? "neg" : ""}">${c.saldo.toLocaleString("es-VE")}</b><span>disponibles hoy</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b class="${c.despues < 0 ? "neg" : ""}">${c.despues.toLocaleString("es-VE")}</b><span>quedan después</span></div><div><b>${c.prox ? "+" + c.prox.dias : "—"}</b><span>${c.prox ? "el " + dTxt(c.prox.fecha) : "próximo aniversario"}</span></div></div>`;
 
 /* ---------- Mis vacaciones ---------- */
 function vistaMias(m) {
   const hoy = dHoy(), c = cuentaVac(YO, hoy);
   m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
-      <div><h1>Mis vacaciones</h1><p class="sub" style="margin-bottom:18px">En días hábiles al ${dTxt(hoy)}. ${YO.ingreso ? `Llevas ${c.anios} ${c.anios === 1 ? "año" : "años"} en la empresa: te corresponden ${c.anual} días por año.` : ""}</p></div>
+      <div><h1>Mis vacaciones</h1><p class="sub" style="margin-bottom:18px">En días hábiles al ${dTxt(hoy)}. ${c.sinAcum ? "Tu puesto no acumula días oficiales: aquí registras los días que se te otorgan." : YO.ingreso ? `Llevas ${c.anios} ${c.anios === 1 ? "año" : "años"} en la empresa: te corresponden ${c.anual} días por año.` : ""}</p></div>
       <div class="fila no-print" style="margin-bottom:14px"><button class="btn" id="vNuevo">+ Registrar mis vacaciones</button></div></div>
     <div class="panel">${resumenCifras(c)}
       ${c.fuera ? `<div style="margin-top:12px"><span class="vtag ok">Estás de vacaciones hasta el ${dTxt(c.fuera.hasta)}</span></div>` : ""}
@@ -936,17 +970,17 @@ const EQV = { filtro: null };
 function vistaEquipo(m) {
   const hoy = dHoy();
   EQV.filtro ||= "todos"; if (!GEST.size || soyAdmin()) EQV.filtro = "todos";
-  const gente = PERSONAS.filter(p => p.activo !== false && tieneVac(p.id) && (EQV.filtro === "todos" || GEST.has(p.id))).map(p => ({ p, c: cuentaVac(p, hoy) })).sort((a, b) => a.p.nombre.localeCompare(b.p.nombre, "es"));
+  const gente = PERSONAS.filter(p => p.activo !== false && (EQV.filtro === "todos" || GEST.has(p.id))).map(p => ({ p, c: cuentaVac(p, hoy) })).sort((a, b) => a.p.nombre.localeCompare(b.p.nombre, "es"));
   const fueraHoy = gente.filter(x => x.c.fuera), en30 = dSum(hoy, 30);
   const proximas = gente.flatMap(x => x.c.planificadas.filter(r => r.desde <= en30).map(r => ({ ...r, nombre: x.p.nombre }))).sort((a, b) => a.desde.localeCompare(b.desde));
-  const total = gente.reduce((s, x) => s + x.c.saldo, 0), alertas = gente.filter(x => x.c.alertas.length).length;
+  const total = gente.filter(x => !x.c.sinAcum).reduce((s, x) => s + x.c.saldo, 0), alertas = gente.filter(x => x.c.alertas.length).length;
   m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
       <div><h1>Todo el equipo</h1><p class="sub" style="margin-bottom:18px">Saldos en días hábiles al ${dTxt(hoy)}. Todos ven las vacaciones de todos; cada quien gestiona las suyas${GEST.size ? " y tú también las de tu gente" : ""}.</p></div>
-      <div class="fila no-print" style="margin-bottom:14px">${GEST.size && !soyAdmin() ? `<div class="toggle" id="vFiltro"><button data-f="todos" class="${EQV.filtro === "todos" ? "on" : ""}">Todos</button><button data-f="mios" class="${EQV.filtro === "mios" ? "on" : ""}">Mi equipo</button></div>` : ""}<button class="btn sec" id="vExcel">Descargar en Excel</button>${tieneVac(YO.id) || GEST.size ? `<button class="btn" id="vNuevo">+ Registrar</button>` : ""}</div></div>
+      <div class="fila no-print" style="margin-bottom:14px">${GEST.size && !soyAdmin() ? `<div class="toggle" id="vFiltro"><button data-f="todos" class="${EQV.filtro === "todos" ? "on" : ""}">Todos</button><button data-f="mios" class="${EQV.filtro === "mios" ? "on" : ""}">Mi equipo</button></div>` : ""}<button class="btn sec" id="vExcel" title="Formato semanal como el Excel de siempre, más saldos, registro e historial">Respaldo en Excel</button><button class="btn" id="vNuevo">+ Registrar</button></div></div>
     <div class="franja">
       <div><div class="v">${fueraHoy.length}</div><div class="l">Fuera hoy${fueraHoy.length ? `: ${fueraHoy.map(x => esc(primerNombre(x.p.nombre))).join(", ")}` : ""}</div></div>
       <div><div class="v">${proximas.length}</div><div class="l">Salidas en los próximos 30 días</div></div>
-      <div><div class="v">${total.toLocaleString("es-VE")} <small>días</small></div><div class="l">Acumulados (${gente.length} personas)</div></div>
+      <div><div class="v">${total.toLocaleString("es-VE")} <small>días</small></div><div class="l">Acumulados (${gente.filter(x => !x.c.sinAcum).length} personas con días oficiales)</div></div>
       <div><div class="v" style="color:${alertas ? "var(--warn)" : "var(--ok)"}">${alertas}</div><div class="l">${alertas === 1 ? "Persona" : "Personas"} con algo por revisar</div></div></div>
     ${proximas.length ? `<div class="panel vprox"><h2>Próximas salidas</h2><div class="vprox-l">${proximas.map(r => `<button class="vchip" data-vr="${r.id}"><b>${esc(r.nombre)}</b><span>${rangoTxt(r.desde, r.hasta)} · ${nDias(r.n)}${r.estimado ? " · por confirmar" : ""}</span></button>`).join("")}</div></div>` : ""}
     <div class="vgrid">${gente.map(tarjetaVac).join("") || `<div class="panel vacio">Aún no hay personas.</div>`}</div>
@@ -969,7 +1003,7 @@ async function pintarCal(el) {
   let vacs = [];
   try { vacs = await ok(sb.rpc("vacaciones_equipo", { p_desde: ini, p_hasta: fin })) || []; } catch (e) { el.innerHTML = `<div class="err">No pude cargar el calendario: ${esc(mensajeError(e))}</div>`; return; }
   const dias = Array.from({ length: ult }, (_, i) => `${VV.mes}-${pad2(i + 1)}`);
-  const filas = EQ_CAL.filter(p => tieneVac(p.id)).map(p => ({ p, v: vacs.filter(r => r.persona_id === p.id) }));
+  const filas = EQ_CAL.map(p => ({ p, v: vacs.filter(r => r.persona_id === p.id) }));
   const ocupado = (x, s) => x.v.find(r => r.desde <= s && r.hasta >= s);
   const conteo = dias.map(s => habil(s) ? filas.filter(x => ocupado(x, s)).length : null);
   const max = Math.max(1, ...conteo.filter(n => n != null)), ferMes = dias.filter(s => FER().has(s));
@@ -1000,7 +1034,7 @@ function modalRegistro({ id, pid }) {
   const r = existente ? { ...existente } : { id: null, pid: pid || "", tipo: "vac", desde: "", hasta: "", dias: "", comentario: "" };
   const propio = YO && r.pid === YO.id;
   const editable = !existente || puedoEditar(r.pid);
-  const opciones = [...(YO && tieneVac(YO.id) ? [YO] : []), ...PERSONAS.filter(p => GEST.has(p.id) && tieneVac(p.id) && (p.activo !== false || p.id === r.pid))];
+  const opciones = [...(YO ? [YO] : []), ...PERSONAS.filter(p => GEST.has(p.id) && (p.activo !== false || p.id === r.pid))];
   const unaSola = opciones.length === 1;
   if (!r.pid && unaSola) r.pid = opciones[0].id;
   const p0 = personaVac(r.pid);
@@ -1015,7 +1049,7 @@ function modalRegistro({ id, pid }) {
     <div id="rInfo" class="vinfo"></div>
     <div class="fila" style="justify-content:space-between;margin-top:18px">${existente && editable ? `<button class="btn peligro" id="rDel">Eliminar</button>` : "<span></span>"}<span class="fila"><button class="btn sec" id="rNo">${editable ? "Cancelar" : "Cerrar"}</button>${editable ? `<button class="btn" id="rOk">${existente ? "Guardar cambios" : "Guardar"}</button>` : ""}</span></div>`);
   const pidActual = () => el.querySelector("#rP").value;
-  const tipoVisible = () => { const t = el.querySelector("#rT"); if (!existente) t.style.display = pidActual() && puedoEditar(pidActual()) ? "" : "none"; };
+  const tipoVisible = () => { const t = el.querySelector("#rT"); if (!existente) t.style.display = pidActual() && puedoEditar(pidActual()) && !(personaVac(pidActual()) || {}).sinAcum ? "" : "none"; if ((personaVac(pidActual()) || {}).sinAcum && r.tipo === "ajuste") { r.tipo = "vac"; el.querySelectorAll("#rT button").forEach(x => x.classList.toggle("on", x.dataset.t === "vac")); campos(); } };
   const campos = () => {
     el.querySelector("#rCampos").innerHTML = r.tipo === "ajuste"
       ? `<div class="dos" style="gap:12px"><div><label class="f">Fecha</label><input type="date" id="rD" value="${r.desde || hoy}"></div><div><label class="f">Días (+ suma, − resta)</label><input type="number" id="rN" step="0.5" value="${r.dias ?? ""}" placeholder="Ej.: 3 o -2"></div></div>`
@@ -1035,7 +1069,10 @@ function modalRegistro({ id, pid }) {
         const n = diasHabiles(r.desde, r.hasta), fer = feriadosEntre(r.desde, r.hasta);
         h += `<div class="vbig">${nDias(n)} hábiles</div>`;
         if (fer.length) h += `<div>No cuenta: ${esc(fer.join(", "))}.</div>`;
-        if (p) {
+        if (p && p.sinAcum) {
+          const anio = r.desde.slice(0, 4), otros = VAC.registros.filter(x => x.pid === p.id && x.id !== r.id && x.tipo !== "ajuste" && x.desde.slice(0, 4) === anio).reduce((s, x) => s + diasHabiles(x.desde, x.hasta), 0);
+          h += `<div>Con estos, ${YO && p.id === YO.id ? "llevarías" : esc(primerNombre(p.nombre)) + " llevaría"} <b>${nDias(otros + n)}</b> en ${anio}. ${YO && p.id === YO.id ? "Tu puesto no acumula" : "No acumula"} días oficiales: se otorgan por acuerdo.</div>`;
+        } else if (p) {
           const c = cuentaVac(p, hoy), finP = VAC.registros.filter(x => x.pid === p.id && x.id !== r.id).reduce((mx, x) => x.hasta > mx ? x.hasta : mx, r.hasta > hoy ? r.hasta : hoy);
           const quedan = saldoAl(p, finP, r.id) - (r.desde > c.corte ? n : 0);
           const aniv = c.prox && c.prox.fecha > hoy && c.prox.fecha <= finP ? c.prox : null;
@@ -1110,10 +1147,10 @@ function modalPersona(id) {
   const c = nueva ? null : cuentaVac(p0, hoy), sup = personaVac(p.supervisor_id);
   const [accCls, accTxt] = estadoAcceso(p);
   const el = modal(`<h2>${nueva ? "Agregar persona" : esc(p.nombre)}</h2>
-    ${nueva ? "" : `<p class="nota-h" style="margin:0 0 4px">${puestoDe(p.id) ? esc(puestoDe(p.id).cargo) + " · " : ""}${sup ? "Reporta a " + esc(sup.nombre) : "Sin supervisor asignado"}${p.correo ? " · " + esc(p.correo) : ""}</p>${tieneVac(p.id) ? resumenCifras(c) : `<div class="aviso" style="display:block">Su nivel no acumula vacaciones.</div>`}
-      ${c.alertas.length && tieneVac(p.id) ? `<div style="margin:10px 0 0">${c.alertas.map(([t, x]) => `<span class="vtag ${t}">${esc(x)}</span>`).join(" ")}</div>` : ""}
-      ${p.nota ? `<div class="aviso" style="display:block;margin-top:10px">${esc(p.nota)}</div>` : ""}
-      <div class="fila" style="justify-content:space-between;margin:20px 0 6px"><h3 style="margin:0;font-size:14px">Movimientos</h3>${puedoEditar(p.id) && tieneVac(p.id) ? `<button class="btn sec" id="pReg" style="padding:6px 12px;font-size:13px">+ Registrar</button>` : ""}</div>
+    ${nueva ? "" : `<p class="nota-h" style="margin:0 0 4px">${puestoDe(p.id) ? esc(puestoDe(p.id).cargo) + " · " : ""}${sup ? "Reporta a " + esc(sup.nombre) : "Sin supervisor asignado"}${p.correo ? " · " + esc(p.correo) : ""}</p>${resumenCifras(c)}
+      ${c.alertas.length ? `<div style="margin:10px 0 0">${c.alertas.map(([t, x]) => `<span class="vtag ${t}">${esc(x)}</span>`).join(" ")}</div>` : ""}
+      ${p.nota && !(p.sinAcum && /fecha de ingreso/i.test(p.nota)) ? `<div class="aviso" style="display:block;margin-top:10px">${esc(p.nota)}</div>` : ""}
+      <div class="fila" style="justify-content:space-between;margin:20px 0 6px"><h3 style="margin:0;font-size:14px">Movimientos</h3>${puedoEditar(p.id) ? `<button class="btn sec" id="pReg" style="padding:6px 12px;font-size:13px">+ Registrar</button>` : ""}</div>
       ${tablaMovimientos(p0, c, hoy)}
       <details class="vhist" data-hist="${p.id}"><summary>Historial de cambios</summary><div class="vhist-c">Cargando…</div></details>`}
     ${admin ? `<details ${nueva ? "open" : ""} style="margin-top:16px"><summary>${nueva ? "Datos" : "Editar datos, supervisor y acceso"}</summary>
@@ -1190,7 +1227,7 @@ function vistaAdmin(m) {
     <div class="panel" style="padding:8px 14px"><div class="matriz"><table class="vadm"><tr><th>Nombre</th><th>Puesto</th><th>Correo</th><th>Reporta a</th><th>Ingreso</th><th>Saldo hoy</th><th>Acceso</th><th></th></tr>
     ${lista.map(p => { const [cl, tx] = estadoAcceso(p), s = personaVac(p.supervisor_id); return `<tr class="clic${p.activo === false ? " inact" : ""}" data-vp="${p.id}">
       <td><b style="font-weight:500">${esc(p.nombre)}</b>${p.activo === false ? ` <span class="vtag">inactiva</span>` : ""}</td><td style="font-size:12.5px;color:var(--ink-2)">${puestoDe(p.id) ? esc(puestoDe(p.id).cargo) : `<span class="vtag">sin puesto</span>`}</td><td>${esc(p.correo || "—")}</td><td>${s ? esc(s.nombre) : "—"}</td>
-      <td>${p.ingreso ? dTxt(p.ingreso) : `<span class="vtag bad">falta</span>`}</td><td class="num">${tieneVac(p.id) ? cuentaVac(p).saldo.toLocaleString("es-VE") : "—"}</td><td><span class="vtag ${cl}">${tx}</span></td>
+      <td>${p.ingreso ? dTxt(p.ingreso) : `<span class="vtag bad">falta</span>`}</td><td class="num">${p.sinAcum ? `<span class="vtag">sin días oficiales</span>` : cuentaVac(p).saldo.toLocaleString("es-VE")}</td><td><span class="vtag ${cl}">${tx}</span></td>
       <td>${p.admin ? `<span class="vtag info">Super-admin</span> ` : ""}${p.ve_estructura && !p.admin ? `<span class="vtag info">Ve estructura</span> ` : ""}${esSup(p.id) ? `<span class="vtag">Supervisor</span>` : ""}</td></tr>`; }).join("")}</table></div></div>`;
   $("aNueva").onclick = () => modalPersona(null);
   $("aImp").onclick = () => modalImportar();
@@ -1346,20 +1383,61 @@ function modalImportar(res) {
 }
 
 /* ---------- Descargar en Excel (lo que tú puedes ver) ---------- */
-function exportarVac() {
-  const hoy = dHoy(), visibles = PERSONAS.filter(p => (gestiono(p.id) || (YO && p.id === YO.id)) && tieneVac(p.id));
-  const gente = visibles.map(p => ({ p, c: cuentaVac(p, hoy) })).sort((a, b) => a.p.nombre.localeCompare(b.p.nombre, "es"));
-  const saldos = gente.map(({ p, c }) => ({ "Colaborador": p.nombre, "Reporta a": (personaVac(p.supervisor_id) || {}).nombre || "", "Activo": p.activo !== false ? "Sí" : "No", "Fecha de ingreso": p.ingreso || "", "Años de servicio": p.ingreso ? c.anios : "", "Días por año": c.anual,
-    "Saldo inicial": num(p.saldo) || 0, "Saldo inicial al": p.corte || "", "Disponibles hoy": c.saldo, "Planificados": c.plan, "Quedan después": c.despues,
-    "Próximo aniversario": c.prox ? c.prox.fecha : "", "Días que suma": c.prox ? c.prox.dias : "", "Alertas": c.alertas.map(a => a[1]).join(" · ") }));
-  const ids = new Set(visibles.map(p => p.id));
-  const reg = VAC.registros.filter(r => ids.has(r.pid)).map(r => ({ "Colaborador": (personaVac(r.pid) || {}).nombre || "", "Tipo": r.tipo === "ajuste" ? "Ajuste" : "Vacaciones", "Desde": r.desde, "Hasta": r.tipo === "ajuste" ? "" : r.hasta,
-    "Días hábiles": r.tipo === "ajuste" ? num(r.dias) : diasHabiles(r.desde, r.hasta), "Estado": r.tipo === "ajuste" ? "" : r.desde > hoy ? "Planificada" : r.hasta < hoy ? "Disfrutada" : "En curso", "Fechas por confirmar": r.estimado ? "Sí" : "", "Comentario": r.comentario || "" }))
+async function exportarVac() {
+  const hoy = dHoy(), gente = PERSONAS.filter(p => p.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const cuentas = new Map(gente.map(p => [p.id, cuentaVac(p, hoy)]));
+  const lunes = s => { const w = dDow(s); return dSum(s, w === 0 ? -6 : 1 - w); };
+  const inicio = lunes(gente.reduce((m, p) => p.corte && p.corte < m ? p.corte : m, hoy)), fin = dSum(lunes(hoy), 52 * 7);
+  const semanas = []; for (let s = inicio; s <= fin; s = dSum(s, 7)) semanas.push(s);
+  const col = s => Math.floor((dDe(s) - dDe(inicio)) / 864e5 / 7);
+  const serial = s => Math.round((dDe(s) - Date.UTC(1899, 11, 30)) / 864e5);
+  const A = XLSX.utils.encode_cell, ws = {}, set = (r, c, v, z) => { if (v === "" || v == null) return; ws[A({ r, c })] = typeof v === "number" ? { t: "n", v, ...(z ? { z } : {}) } : { t: "s", v: String(v) }; };
+  set(0, 0, "Dir INN"); set(0, 4, `Respaldo del Portal DIENN al ${dTxt(hoy)} · por persona: fila 1 = días tomados en la semana, fila 2 = días abonados (aniversario) o ajustes, fila 3 = saldo`);
+  ["Nombre", "Fecha ingreso", "Días Pendientes inicio de cuenta DIENN", "Nuevos por fecha aniversario"].forEach((h, c) => set(2, c, h));
+  semanas.forEach((s, k) => set(2, 4 + k, serial(s), "d-mmm-yy"));
+  let r = 3;
+  for (const p of gente) {
+    const c = cuentas.get(p.id), tom = new Array(semanas.length).fill(0), abo = new Array(semanas.length).fill(0);
+    c.vac.filter(x => c.sinAcum || x.desde > c.corte).forEach(x => { for (let s = x.desde; s <= x.hasta; s = dSum(s, 1)) { if (!habil(s)) continue; const k = col(s); if (k >= 0 && k < semanas.length) tom[k]++; } });
+    if (!c.sinAcum) {
+      if (p.ingreso) { const y0 = +p.ingreso.slice(0, 4); for (let y = y0 + 1; y <= +fin.slice(0, 4); y++) { const a = aniversario(p, y); if (a > c.corte && a <= fin) { const k = col(a); if (k >= 0 && k < semanas.length) abo[k] += diasPorAnio(p, y - y0); } } }
+      c.ajustes.forEach(x => { const k = Math.max(0, col(x.desde)); if (k < semanas.length) abo[k] += num(x.dias) || 0; });
+    }
+    set(r, 0, p.nombre); if (p.ingreso) set(r, 1, serial(p.ingreso), "m/d/yy");
+    if (!c.sinAcum) { set(r, 2, num(p.saldo) || 0); set(r, 3, c.anual); } else set(r, 2, "Pasante: sin días oficiales");
+    let saldo = num(p.saldo) || 0;
+    semanas.forEach((s, k) => {
+      if (tom[k]) set(r, 4 + k, tom[k]);
+      if (abo[k]) set(r + 1, 4 + k, abo[k]);
+      if (!c.sinAcum) {
+        saldo += abo[k] - tom[k];
+        const ant = k === 0 ? A({ r, c: 2 }) : A({ r: r + 2, c: 3 + k }), cel = A({ r: r + 2, c: 4 + k });
+        ws[cel] = { t: "n", v: saldo, f: `${ant}+${A({ r: r + 1, c: 4 + k })}-${A({ r, c: 4 + k })}` };
+      }
+    });
+    r += 3;
+  }
+  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: r, c: 3 + semanas.length } });
+  ws["!cols"] = [{ wch: 24 }, { wch: 11 }, { wch: 14 }, { wch: 12 }, ...semanas.map(() => ({ wch: 9 }))];
+  ws["!freeze"] = { xSplit: 4, ySplit: 3 };
+  const saldos = gente.map(p => { const c = cuentas.get(p.id); return { "Colaborador": p.nombre, "Puesto": (puestoDe(p.id) || {}).cargo || "", "Reporta a": (personaVac(p.supervisor_id) || {}).nombre || "", "Fecha de ingreso": p.ingreso || "",
+    "Días por año": c.sinAcum ? "" : c.anual, "Saldo inicial": c.sinAcum ? "" : num(p.saldo) || 0, "Saldo inicial al": c.sinAcum ? "" : p.corte || "", "Disponibles hoy": c.sinAcum ? "Sin días oficiales" : c.saldo,
+    "Tomados en el año": c.tomadosAnio, "Planificados": c.plan, "Quedan después": c.sinAcum ? "" : c.despues, "Próximo aniversario": c.prox ? c.prox.fecha : "", "Días que suma": c.prox ? c.prox.dias : "", "Alertas": c.alertas.map(a => a[1]).join(" · ") }; });
+  const reg = VAC.registros.filter(x => cuentas.has(x.pid)).map(x => ({ "Colaborador": (personaVac(x.pid) || {}).nombre || "", "Tipo": x.tipo === "ajuste" ? "Ajuste" : "Vacaciones", "Desde": x.desde, "Hasta": x.tipo === "ajuste" ? "" : x.hasta,
+    "Días hábiles": x.tipo === "ajuste" ? num(x.dias) : diasHabiles(x.desde, x.hasta), "Estado": x.tipo === "ajuste" ? "" : x.desde > hoy ? "Planificada" : x.hasta < hoy ? "Disfrutada" : "En curso",
+    "Lo cubre": x.suplente_id ? nombreDe(x.suplente_id) : "", "Fechas por confirmar": x.estimado ? "Sí" : "", "Comentario / justificación": x.comentario || "" }))
     .sort((a, b) => a.Desde.localeCompare(b.Desde) || a.Colaborador.localeCompare(b.Colaborador));
+  let hist = [];
+  try { hist = (await ok(sb.from("historial").select("*").order("hecho_en", { ascending: false }).limit(5000))) || []; } catch (e) { }
+  const sinHtml = h => String(h).replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'");
+  const histF = hist.map(x => ({ "Fecha y hora": fechaHora(x.hecho_en), "Persona": nombreDe(x.persona_id), "Hecho por": x.hecho_por ? nombreDe(x.hecho_por) : "Sistema", "Cambio": sinHtml(describirCambio(x)) }));
   const wb = XLSX.utils.book_new(), hoja = (d, w) => { const s = XLSX.utils.json_to_sheet(d.length ? d : [{ "": "Sin datos" }]); s["!cols"] = w.map(wch => ({ wch })); return s; };
-  XLSX.utils.book_append_sheet(wb, hoja(saldos, [26, 24, 7, 14, 10, 10, 11, 14, 13, 12, 13, 16, 11, 40]), "Saldos");
-  XLSX.utils.book_append_sheet(wb, hoja(reg, [26, 11, 12, 12, 11, 12, 12, 50]), "Registro");
-  XLSX.writeFile(wb, `Vacaciones_${hoy}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, "VACACIONES");
+  XLSX.utils.book_append_sheet(wb, hoja(saldos, [26, 30, 24, 14, 10, 11, 14, 14, 12, 12, 13, 16, 11, 40]), "Saldos");
+  XLSX.utils.book_append_sheet(wb, hoja(reg, [26, 11, 12, 12, 11, 12, 22, 12, 60]), "Registro");
+  XLSX.utils.book_append_sheet(wb, hoja(histF, [20, 26, 26, 90]), "Historial");
+  XLSX.writeFile(wb, `Vacaciones_DIENN_respaldo_${hoy}.xlsx`);
+  estado("Respaldo descargado");
 }
 
 iniciar();
