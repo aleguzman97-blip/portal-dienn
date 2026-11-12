@@ -1196,7 +1196,13 @@ function modalPersona(id) {
     try {
       if (nueva) await ok(sb.from("personas").insert({ id: p.id, ...fila })); else await ok(sb.from("personas").update(fila).eq("id", p.id));
       cerrarModal(); await recargar(nueva ? "Persona agregada" : "Datos guardados");
-      const z = personaVac(p.id); if (fila.correo && z && !z.user_id) modalPersona(p.id);
+      const z = personaVac(p.id);
+      if (fila.correo && z && !z.user_id) modalPersona(p.id);
+      else if (!nueva && z && z.user_id && fila.correo !== (p0.correo || "")) {
+        modalPersona(p.id);
+        const box = document.querySelector("#pCred");
+        if (box) box.innerHTML = `<div class="aviso" style="display:block;margin-top:10px">Cambiaste el correo: pulsa <b>Restablecer clave</b> para que su acceso pase al correo nuevo y enviarle sus datos.</div>`;
+      }
     } catch (e) { err.textContent = "No se guardó: " + mensajeError(e); }
   };
   if (el.querySelector("#pAcc")) el.querySelector("#pAcc").onclick = async () => {
