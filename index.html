@@ -120,6 +120,13 @@
   .sim-card:hover{border-color:var(--accent);box-shadow:0 3px 12px rgba(42,85,208,.09)}
   .sim-card b{font-size:15.5px;color:var(--ink)}
   .sim-card span{font-size:13px;color:var(--ink-2)}
+  .dc-box{margin-top:16px;padding:14px 16px;border-radius:9px;background:#f6f8fb;border:1px solid var(--rule)}
+  .dc-box h3{font-size:14px;margin:0 0 4px}
+  .dc-chat{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:12px;background:#f6f8fb;border:1px solid var(--rule);border-radius:9px;margin:12px 0}
+  .dc-msg{padding:10px 13px;border-radius:9px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;max-width:90%}
+  .dc-msg.u{align-self:flex-end;background:var(--ink);color:#fff}
+  .dc-msg.m{align-self:flex-start;background:#fff;border:1px solid var(--rule);color:var(--ink)}
+  .ocb .ocdc{font-size:10px;color:var(--ok);background:#e1f2ec;border-radius:4px;padding:1px 6px;margin-top:3px;font-weight:500}
 
   .rubro{display:grid;grid-template-columns:minmax(180px,1.3fr) 2fr 112px;gap:6px 18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule-2)}
   .rubro:last-child{border-bottom:0}
@@ -491,7 +498,7 @@ function leerVacExcel(R, hoy) {
    MÓDULO EQUIPO: Estructura (Actual, Aspiracional, Simulador) y Proyectos
    ===================================================================== */
 let DIR = [], NIVELES = [], PUESTOS = [], PUESTOS_ASP = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
-let ASP_TABLA_OK = true, SIM_TABLA_OK = true, SIM_LISTA = [], SIM_ACC = [], USUARIOS_EST = [];
+let ASP_TABLA_OK = true, SIM_TABLA_OK = true, DC_TABLA_OK = true, SIM_LISTA = [], SIM_ACC = [], USUARIOS_EST = [], MANUALES = [], DC_LISTA = [];
 const EQ = { fecha: null, zoom: null, modo: "proyecto", tab: "actual" };
 const SIM = { activo: false, id: null, propietario_id: null, permiso: "dueno", origen: null, titulo: "", puestos: [], sucio: false };
 const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
@@ -568,8 +575,18 @@ async function cargarEquipo() {
       SIM_LISTA = []; SIM_ACC = []; USUARIOS_EST = [];
       SIM_TABLA_OK = false;
     }
+    try {
+      const [dc, man] = await Promise.all([
+        ok(sb.from("descripciones_cargo").select("*")),
+        ok(sb.from("manuales_dc").select("*").order("created_at", { ascending: true }))
+      ]);
+      DC_LISTA = dc || []; MANUALES = man || []; DC_TABLA_OK = true;
+    } catch (e) {
+      DC_LISTA = []; MANUALES = []; DC_TABLA_OK = false;
+    }
   }
 }
+const dcDe = (modo, puestoId) => DC_LISTA.find(x => x.estructura_tipo === modo && x.puesto_id === puestoId) || null;
 async function ausenciasDel(fecha) {
   if (!PERM.estructura && !PERM.proyectos) return [];
   try { return (await ok(sb.rpc("ausencias", { p_fecha: fecha }))) || []; } catch (e) { return []; }
@@ -590,7 +607,7 @@ function titularPuesto(p) {
   if (p.nombre_libre) return p.nombre_libre;
   return "";
 }
-function construirArbolHTML(lista, ausDe) {
+function construirArbolHTML(lista, ausDe, modoDC = null) {
   const ids = new Set(lista.map(p => p.id));
   const caja = p => {
     const tit = titularPuesto(p), ocupado = !!tit;
@@ -601,7 +618,7 @@ function construirArbolHTML(lista, ausDe) {
       ${enc ? `<span class="ocint">Encargado/a: ${esc(nombreDe(p.encargado_id))}</span>` : ""}
       ${otros.length ? `<span class="ocint">También a cargo de ${otros.map(x => esc(x.cargo)).join(", ")}</span>` : ""}
       ${p.persona_id && p.supervisor_interino_id ? `<span class="ocint">Reporta temporalmente a ${esc(primerNombre(nombreDe(p.supervisor_interino_id)))}</span>` : ""}
-      ${!ocupado && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}</button>`;
+      ${!ocupado && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}${modoDC && dcDe(modoDC, p.id) ? `<span class="ocdc">📄 Descripción</span>` : ""}</button>`;
   };
   const vistos = new Set();
   const rama = p => {
@@ -642,7 +659,7 @@ async function vistaEstructura(m) {
   const proc = lista.filter(p => !titularPuesto(p) && p.en_proceso).length;
   const interinos = lista.filter(p => !titularPuesto(p) && p.encargado_id).length;
   const fuera = !esAsp ? lista.filter(p => p.persona_id && ausDe(p.persona_id)).length : 0;
-  const arbol = lista.length ? construirArbolHTML(lista, esAsp ? null : ausDe) : "";
+  const arbol = lista.length ? construirArbolHTML(lista, esAsp ? null : ausDe, esAsp ? "aspiracional" : "actual") : "";
   const sinPuesto = !esAsp && soyAdmin() ? PERSONAS.filter(p => p.activo !== false && !puestoDe(p.id)) : [];
 
   m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
@@ -650,7 +667,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -671,6 +688,7 @@ async function vistaEstructura(m) {
   enlazarTabsEstructura(m);
   if ($("eFecha")) $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
+  if ($("eMan")) $("eMan").onclick = modalManualesDC;
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
   if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
   m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
@@ -1034,6 +1052,24 @@ function modalPuesto(id, modo = "actual") {
     <div id="uVacW"><label class="f">Encargado/a interino/a <span style="color:var(--ink-3)">doble rol mientras se cubre la vacante</span></label><select id="uE"><option value="">— Nadie —</option>${genteBase.sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.encargado_id ? "selected" : ""}>${esc(x.nombre)}${x.cargo ? " · " + esc(x.cargo) : ""}</option>`).join("")}</select>
       <label class="fila" style="gap:8px;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="uProc" ${p.en_proceso ? "checked" : ""}> Vacante en proceso / proyección</label></div>
     <div id="uOcW"><label class="f">Reporta temporalmente a <span style="color:var(--ink-3)">opcional, sin mover el puesto</span></label><select id="uT"><option value="">— Según la estructura —</option>${genteBase.filter(x => x.id !== p.persona_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.supervisor_interino_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+    ${!esSim && !nuevo ? (() => {
+      if (!DC_TABLA_OK) return `<div class="dc-box"><h3>Descripción de Cargo</h3><p class="pend" style="margin:4px 0 0">Ejecuta <b>supabase_modulo2_descripciones.sql</b> en Supabase para activar las Descripciones de Cargo y Gemini AI.</p></div>`;
+      const dc = dcDe(modo, p.id);
+      return `<div class="dc-box">
+        <div class="fila" style="justify-content:space-between;align-items:center">
+          <div><h3>Descripción de Cargo</h3><div style="font-size:12.5px;color:var(--ink-2)">${dc ? `Archivo adjunto: <b>${esc(dc.archivo_nombre || "Descripción.doc")}</b>` : "Este puesto aún no tiene descripción de cargo."}</div></div>
+          <span class="vtag ${dc ? "ok" : "warn"}">${dc ? "Cargada" : "Pendiente"}</span>
+        </div>
+        <div class="fila" style="margin-top:10px;gap:8px">
+          ${dc && dc.archivo_path ? `<button type="button" class="btn sec" id="dcDesc" style="padding:6px 11px;font-size:12.5px">Descargar Word</button>` : ""}
+          <button type="button" class="btn sec" id="dcSubir" style="padding:6px 11px;font-size:12.5px">${dc ? "Reemplazar Word" : "Subir Word (.doc/.docx)"}</button>
+          <button type="button" class="btn" id="dcIA" style="padding:6px 11px;font-size:12.5px;background:var(--accent)">✨ ${dc ? "Pulir con Gemini AI" : "Crear con Gemini AI"}</button>
+          ${dc ? `<button type="button" class="btn peligro" id="dcDel" style="padding:6px 4px;font-size:12.5px;margin-left:auto">Quitar</button>` : ""}
+        </div>
+        <input type="file" id="dcFile" accept=".doc,.docx,.pdf" hidden>
+        <div class="err" id="dcErr" style="margin-top:6px;min-height:0"></div>
+      </div>`;
+    })() : ""}
     <div class="err" id="uErr"></div>
     <div class="fila" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
       <span class="fila">${nuevo ? "" : `<button class="btn peligro" id="uDel">Eliminar puesto</button>${esActual && soyAdmin() && p.persona_id ? `<button class="btn peligro" id="uSacar" style="margin-left:14px">Sacar del equipo</button>` : ""}`}</span>
@@ -1049,6 +1085,25 @@ function modalPuesto(id, modo = "actual") {
   };
   g("#uP").onchange = refrescar; refrescar();
   g("#uNo").onclick = cerrarModal;
+  if (g("#dcSubir")) {
+    g("#dcSubir").onclick = () => g("#dcFile").click();
+    g("#dcFile").onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      g("#dcErr").textContent = "Subiendo archivo…";
+      try {
+        await subirArchivoDC(modo, p.id, f);
+        await cargarEquipo();
+        modalPuesto(p.id, modo);
+        estado("Descripción de cargo subida");
+      } catch (ex) { g("#dcErr").textContent = "No se subió: " + mensajeError(ex); }
+    };
+  }
+  if (g("#dcDesc")) g("#dcDesc").onclick = () => descargarArchivoDC(dcDe(modo, p.id), g("#dcErr"));
+  if (g("#dcDel")) g("#dcDel").onclick = async () => {
+    if (!confirm("¿Quitar la Descripción de Cargo de este puesto?")) return;
+    try { await eliminarDC(modo, p.id); await cargarEquipo(); modalPuesto(p.id, modo); estado("Descripción eliminada"); } catch (ex) { g("#dcErr").textContent = "No se quitó: " + mensajeError(ex); }
+  };
+  if (g("#dcIA")) g("#dcIA").onclick = () => modalAsistenteDC(p, modo, lista);
   if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null, modo); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
   if (!nuevo) g("#uDel").onclick = async () => {
     const hijos = lista.filter(x => x.reporta_a === p.id).length;
@@ -1103,6 +1158,259 @@ function modalPuesto(id, modo = "actual") {
     } catch (e) { err("No se guardó: " + mensajeError(e)); }
   };
   if (nuevo) setTimeout(() => g("#uC").focus(), 0);
+}
+
+/* =====================================================================
+   MÓDULO 2: Descripciones de Cargo, Manuales y Asistente Gemini AI
+   ===================================================================== */
+async function subirArchivoDC(modo, puestoId, file, contenidoJson = null) {
+  const ext = (file.name.split(".").pop() || "doc").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${modo}/${puestoId}.${ext}`;
+  const { error: upErr } = await sb.storage.from("descripciones_cargo").upload(path, file, { upsert: true, contentType: file.type || "application/msword" });
+  if (upErr) throw upErr;
+  const fila = {
+    estructura_tipo: modo, puesto_id: puestoId,
+    archivo_path: path, archivo_nombre: file.name,
+    ...(contenidoJson ? { contenido_json: contenidoJson } : {}),
+    updated_at: new Date().toISOString()
+  };
+  await ok(sb.from("descripciones_cargo").upsert(fila, { onConflict: "estructura_tipo,puesto_id" }));
+}
+async function descargarArchivoDC(dc, errEl) {
+  if (!dc || !dc.archivo_path) return;
+  if (errEl) errEl.textContent = "Descargando…";
+  try {
+    const { data, error } = await sb.storage.from("descripciones_cargo").download(dc.archivo_path);
+    if (error) throw error;
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a"); a.href = url; a.download = dc.archivo_nombre || "Descripcion_de_Cargo.doc"; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    if (errEl) errEl.textContent = "";
+  } catch (e) { if (errEl) errEl.textContent = "No se pudo descargar: " + mensajeError(e); }
+}
+async function eliminarDC(modo, puestoId) {
+  const dc = dcDe(modo, puestoId);
+  if (dc && dc.archivo_path) { try { await sb.storage.from("descripciones_cargo").remove([dc.archivo_path]); } catch (e) { } }
+  await ok(sb.from("descripciones_cargo").delete().eq("estructura_tipo", modo).eq("puesto_id", puestoId));
+}
+
+/* ---------- Biblioteca de Manuales (editable en vivo) ---------- */
+function modalManualesDC(editId = null) {
+  const edit = editId ? MANUALES.find(m => m.id === editId) : null;
+  const el = modal(`<h2>Biblioteca de Manuales de Descripciones de Cargo</h2>
+    <p class="nota-h">Gemini AI lee automáticamente todos los manuales <b>activos</b> cada vez que te ayuda a redactar una descripción. Aquí puedes editar el manual inicial o agregar nuevos manuales cuando te los entreguen.</p>
+    ${!edit ? `<div style="max-height:36vh;overflow:auto;margin-bottom:14px"><table class="vmov">
+      <tr><th>Manual</th><th style="width:90px">Estado</th><th class="num" style="width:130px">Acciones</th></tr>
+      ${MANUALES.map(m => `<tr><td><b>${esc(m.titulo)}</b><div style="font-size:12px;color:var(--ink-3)">${m.contenido.length.toLocaleString("es-VE")} caracteres</div></td>
+        <td><span class="vtag ${m.activo ? "ok" : ""}">${m.activo ? "Activo" : "Inactivo"}</span></td>
+        <td class="num"><button class="btn sec" style="padding:4px 9px;font-size:12px" data-med="${m.id}">Editar</button> <button class="btn peligro" style="padding:0 4px;font-size:12px" data-mdel="${m.id}">Borrar</button></td></tr>`).join("") || `<tr><td colspan="3" class="vacio">Aún no hay manuales cargados.</td></tr>`}
+    </table>
+    <div class="fila" style="justify-content:space-between"><button class="btn" id="mNuevo">+ Agregar otro manual</button><button class="btn sec" id="mCerrar">Cerrar</button></div>`
+    : `<label class="f">Título del manual</label><input type="text" id="mTit" value="${esc(edit.titulo)}" placeholder="Ej.: Manual Corporativo de Valoración 2026">
+      <label class="f">Contenido / reglas del manual <span style="color:var(--ink-3)">pega el texto del manual</span></label>
+      <textarea id="mTxt" style="min-height:240px">${esc(edit.contenido)}</textarea>
+      <label class="fila" style="gap:8px;margin-top:10px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="mAct" ${edit.activo !== false ? "checked" : ""}> Activo (lo usa Gemini AI al redactar descripciones)</label>
+      <div class="err" id="mErr"></div>
+      <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="mVol">Volver</button><button class="btn" id="mOk">Guardar manual</button></div>`}`, 720);
+
+  if (!edit) {
+    el.querySelector("#mCerrar").onclick = cerrarModal;
+    el.querySelector("#mNuevo").onclick = () => {
+      const tmp = { id: "__nuevo", titulo: "", contenido: "", activo: true };
+      MANUALES.push(tmp);
+      modalManualesDC("__nuevo");
+      MANUALES.pop();
+    };
+    el.querySelectorAll("[data-med]").forEach(b => b.onclick = () => modalManualesDC(b.dataset.med));
+    el.querySelectorAll("[data-mdel]").forEach(b => b.onclick = async () => {
+      if (!confirm("¿Eliminar este manual de la biblioteca?")) return;
+      try { await ok(sb.from("manuales_dc").delete().eq("id", b.dataset.mdel)); await cargarEquipo(); modalManualesDC(); estado("Manual eliminado"); } catch (e) { alert("No se eliminó: " + mensajeError(e)); }
+    });
+  } else {
+    el.querySelector("#mVol").onclick = () => modalManualesDC();
+    el.querySelector("#mOk").onclick = async () => {
+      const titulo = texto(el.querySelector("#mTit").value), contenido = texto(el.querySelector("#mTxt").value), activo = el.querySelector("#mAct").checked;
+      if (!titulo || !contenido) return (el.querySelector("#mErr").textContent = "Escribe el título y el contenido del manual.");
+      el.querySelector("#mErr").textContent = "Guardando…";
+      try {
+        if (edit.id === "__nuevo") await ok(sb.from("manuales_dc").insert({ titulo, contenido, activo }));
+        else await ok(sb.from("manuales_dc").update({ titulo, contenido, activo, updated_at: new Date().toISOString() }).eq("id", edit.id));
+        await cargarEquipo();
+        modalManualesDC();
+        estado("Manual guardado");
+      } catch (e) { el.querySelector("#mErr").textContent = "No se guardó: " + mensajeError(e); }
+    };
+  }
+}
+
+/* ---------- Generador de Word (.doc) con formato oficial Empresas Polar ---------- */
+function construirWordPolar(d) {
+  const hoy = dHoy(), mesVig = `${MESES[+hoy.slice(5, 7) - 1]} ${hoy.slice(0, 4)}`.replace(/^./, c => c.toUpperCase());
+  const ol = arr => (Array.isArray(arr) && arr.length) ? `<ol style="margin:4pt 0 8pt 18pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:3pt">${esc(x)}</li>`).join("")}</ol>` : `<p style="color:#666;margin:4pt 0">N/A</p>`;
+  const ul = arr => (Array.isArray(arr) && arr.length) ? `<ul style="margin:4pt 0 4pt 16pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:2pt">${esc(x)}</li>`).join("")}</ul>` : `<p style="color:#666;margin:2pt 0">N/A</p>`;
+  const filasInt = (arr, tit) => `<tr><td colspan="3" style="background:#f2f4f7;font-weight:bold;padding:5pt;border:1px solid #333">${tit}</td></tr>` +
+    ((Array.isArray(arr) && arr.length) ? arr.map(r => `<tr><td style="border:1px solid #333;padding:5pt;font-weight:bold;width:28%">${esc(r.area || "")}</td><td style="border:1px solid #333;padding:5pt;color:#004a99;width:44%">${esc(r.finalidad || "")}</td><td style="border:1px solid #333;padding:5pt;color:#004a99;width:28%">${esc(r.alcance || "")}</td></tr>`).join("") : `<tr><td colspan="3" style="border:1px solid #333;padding:5pt;color:#666">N/A</td></tr>`);
+
+  const docHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Descripción de Cargo - ${esc(d.denominacion || "")}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:9.5pt;color:#111;margin:24pt}
+  table{width:100%;border-collapse:collapse;margin-bottom:10pt}
+  .bar{background:#d9d9d9;color:#001f5b;font-weight:bold;text-align:center;padding:4pt;border:1px solid #333;font-size:10pt}
+  .subbar{background:#efefef;color:#001f5b;font-weight:bold;text-align:center;padding:3pt;border:1px solid #333;font-size:9.5pt}
+  .azul{color:#004a99}
+</style></head><body>
+<table>
+  <tr>
+    <td rowspan="2" style="width:22%;border:1px solid #333;padding:8pt;text-align:center;font-weight:bold;color:#001f5b;font-size:11pt">EMPRESAS POLAR<br><span style="font-size:8pt;font-weight:normal">DIENN</span></td>
+    <td style="width:54%;border:1px solid #333;padding:5pt;text-align:center;font-weight:bold;color:#001f5b;font-size:12pt">DESCRIPCIÓN DE CARGO</td>
+    <td style="width:24%;border:1px solid #333;padding:5pt;font-size:8.5pt"><b>FECHA DE VIGENCIA:</b><br><span class="azul">${esc(mesVig)}</span></td>
+  </tr>
+  <tr>
+    <td style="border:1px solid #333;padding:6pt;text-align:center"><div style="font-size:8pt;text-align:left;font-weight:bold">DENOMINACIÓN DEL CARGO:</div><div style="font-size:12pt;font-weight:bold;color:#001f5b;margin-top:3pt">${esc((d.denominacion || "").toUpperCase())}</div></td>
+    <td style="border:1px solid #333;padding:5pt;font-size:8.5pt"><b>NEGOCIO Y LOCALIDAD:</b><br><span class="azul">${esc(d.negocio_localidad || "Empresas Polar")}</span></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td style="width:32%;vertical-align:top;border:1px solid #333;padding:0">
+      <div class="bar" style="border:0;border-bottom:1px solid #333">DIRECCIÓN O GERENCIA</div>
+      <div style="padding:6pt;text-align:center">${esc(d.direccion_gerencia || "Dirección de Innovación, Estrategia y Nuevos Negocios")}</div>
+      <div class="bar" style="border:0;border-top:1px solid #333;border-bottom:1px solid #333">ORGANIGRAMA</div>
+      <div style="padding:8pt">
+        <div style="border:1px solid #333;padding:6pt;margin-bottom:8pt"><b>Supervisor Inmediato:</b><br>${esc(d.supervisor_inmediato || "—")}</div>
+        <div style="border:1px solid #333;padding:6pt"><b>Cargos que le reportan a esta Posición:</b><br>${esc(d.cargos_reportan || "N/A")}</div>
+      </div>
+    </td>
+    <td style="width:68%;vertical-align:top;border:1px solid #333;padding:0">
+      <div class="bar" style="border:0;border-bottom:1px solid #333">PROPÓSITO GENERAL</div>
+      <div style="padding:8pt;color:#004a99;text-align:justify">${esc(d.proposito_general || "")}</div>
+      <div class="bar" style="border:0;border-top:1px solid #333;border-bottom:1px solid #333">RESPONSABILIDADES</div>
+      <div style="padding:8pt">
+        <b>ES RESPONSABLE DE:</b>${ol(d.responsable_de)}
+        <b>ES INFORMADO DE:</b>${ol(d.informado_de)}
+        <b>ES APROBADOR DE:</b>${ol(d.aprobador_de)}
+        <b>ES SOPORTE DE:</b>${ol(d.soporte_de)}
+      </div>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr><td colspan="3" class="bar">INTERACCIÓN / RELACIÓN</td></tr>
+  <tr><th style="border:1px solid #333;padding:5pt;background:#f7f7f7">Relaciones Internas / Externas</th><th style="border:1px solid #333;padding:5pt;background:#f7f7f7">Finalidad de la Relación</th><th style="border:1px solid #333;padding:5pt;background:#f7f7f7">Dimensión / Alcance</th></tr>
+  ${filasInt(d.interacciones_internas, "Internas")}
+  ${filasInt(d.interacciones_externas, "Externas")}
+</table>
+
+<table>
+  <tr><td colspan="2" class="bar">PERFIL DEL CARGO</td></tr>
+  <tr><td colspan="2" class="subbar">Requisitos Genéricos de Grupo de Cargo</td></tr>
+  <tr><td style="width:30%;border:1px solid #333;padding:6pt;font-weight:bold">Grado de Instrucción</td><td style="border:1px solid #333;padding:6pt" class="azul">${esc(d.grado_instruccion || "")}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Experiencia Efectiva</td><td style="border:1px solid #333;padding:6pt" class="azul">${esc(d.experiencia_efectiva || "")}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Certificaciones o Acreditaciones</td><td style="border:1px solid #333;padding:6pt" class="azul">${esc(d.certificaciones || "")}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Exigencia Cognitiva</td><td style="border:1px solid #333;padding:6pt">${ol(d.exigencia_cognitiva)}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Complejidad del Conocimiento Requerido</td><td style="border:1px solid #333;padding:6pt" class="azul">${esc(d.complejidad_conocimiento || "")}</td></tr>
+  <tr><td colspan="2" class="subbar">Requisitos Específicos del Cargo</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Retos Estratégicos</td><td style="border:1px solid #333;padding:6pt">${ul(d.retos_estrategicos)}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Problemas Claves</td><td style="border:1px solid #333;padding:6pt">${ul(d.problemas_claves)}</td></tr>
+  <tr><td style="border:1px solid #333;padding:6pt;font-weight:bold">Entorno</td><td style="border:1px solid #333;padding:6pt">${ul(d.entorno)}</td></tr>
+</table>
+
+<table>
+  <tr><td class="bar">AUTORIDAD Y AUTONOMÍA</td></tr>
+  <tr><td style="border:1px solid #333;padding:8pt">${ol(d.autoridad_autonomia)}</td></tr>
+  <tr><td class="bar">OTROS ROLES</td></tr>
+  <tr><td style="border:1px solid #333;padding:8pt">${ol(d.otros_roles)}</td></tr>
+</table>
+
+<table style="margin-top:16pt">
+  <tr><td style="width:50%;border:1px solid #333;padding:10pt 6pt 22pt;font-weight:bold;font-size:8.5pt">REVISADO POR:</td><td style="width:50%;border:1px solid #333;padding:10pt 6pt 22pt;font-weight:bold;font-size:8.5pt">APROBADO POR:</td></tr>
+  <tr><td colspan="2" style="border:1px solid #333;padding:4pt;text-align:center;color:#b00020;font-weight:bold;font-size:8pt">“SI USTED CONSULTA UNA VERSIÓN IMPRESA DE ESTE DOCUMENTO, ASEGÚRESE QUE SEA LA VIGENTE”</td></tr>
+</table>
+</body></html>`;
+  return new Blob(["\ufeff", docHtml], { type: "application/msword" });
+}
+
+/* ---------- Chat interactivo con Gemini AI para crear/pulir Descripciones ---------- */
+function modalAsistenteDC(puesto, modo, lista) {
+  const jefe = lista.find(x => x.id === puesto.reporta_a);
+  const reportes = lista.filter(x => x.reporta_a === puesto.id).map(x => x.cargo);
+  const ctxPuesto = {
+    cargo: puesto.cargo,
+    nivel: (nivel(puesto.nivel_id) || {}).nombre || puesto.nivel_id || "",
+    estructura: modo,
+    supervisor: jefe ? jefe.cargo : "Dirección de Innovación, Estrategia y Nuevos Negocios",
+    reportes: reportes.length ? reportes.join(", ") : "N/A"
+  };
+  const mensajes = [];
+  const el = modal(`<h2>✨ Asistente Gemini · Descripción de Cargo</h2>
+    <p class="nota-h" style="margin:0"><b>${esc(puesto.cargo)}</b> (${esc(ctxPuesto.nivel)}) · Usando ${MANUALES.filter(m => m.activo).length} manual(es) activo(s).</p>
+    <div class="dc-chat" id="dcChat"></div>
+    <div class="fila" style="flex-wrap:nowrap;gap:8px">
+      <input type="text" id="dcIn" placeholder="Responde a Gemini o pide ajustes (ej.: agrega foco en alianzas externas)…">
+      <button class="btn" id="dcSend" style="white-space:nowrap">Enviar</button>
+    </div>
+    <div class="err" id="dcIaErr"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:12px">
+      <button class="btn sec" id="dcBack">← Volver al puesto</button>
+      <button class="btn" id="dcGen" style="background:var(--ok)">Generar y alojar Word (.doc)</button>
+    </div>`, 760);
+
+  const chatEl = el.querySelector("#dcChat"), errEl = el.querySelector("#dcIaErr"), inp = el.querySelector("#dcIn");
+  const pintarChat = () => {
+    chatEl.innerHTML = mensajes.map(m => `<div class="dc-msg ${m.role === "user" ? "u" : "m"}">${esc(m.text)}</div>`).join("") || `<div class="vacio" style="font-size:13px">Conectando con Gemini…</div>`;
+    chatEl.scrollTop = chatEl.scrollHeight;
+  };
+  async function llamarIA(accion) {
+    errEl.textContent = accion === "generar" ? "Generando Word oficial con Gemini…" : "Gemini está escribiendo…";
+    el.querySelector("#dcSend").setAttribute("aria-disabled", "true");
+    el.querySelector("#dcGen").setAttribute("aria-disabled", "true");
+    try {
+      const { data, error } = await sb.functions.invoke("descripcion-ia", { body: { accion, puesto: ctxPuesto, mensajes } });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "No respondió la función “descripcion-ia”. Verifica que esté publicada en Supabase.");
+      errEl.textContent = "";
+      if (accion === "generar") {
+        const blob = construirWordPolar(data.doc);
+        const nombreArch = `DC_${limpiar(puesto.cargo).replace(/[^a-z0-9]+/g, "_").slice(0, 45)}.doc`;
+        const file = new File([blob], nombreArch, { type: "application/msword" });
+        await subirArchivoDC(modo, puesto.id, file, data.doc);
+        await cargarEquipo();
+        // Descargar copia local también
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = nombreArch; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        estado("Descripción generada y alojada en el puesto");
+        modalPuesto(puesto.id, modo);
+        return;
+      }
+      mensajes.push({ role: "model", text: data.respuesta });
+      pintarChat();
+    } catch (e) {
+      errEl.textContent = e.message || String(e);
+    } finally {
+      if (el.isConnected) {
+        el.querySelector("#dcSend").removeAttribute("aria-disabled");
+        el.querySelector("#dcGen").removeAttribute("aria-disabled");
+      }
+    }
+  }
+  const enviar = () => {
+    const t = texto(inp.value); if (!t) return;
+    inp.value = "";
+    mensajes.push({ role: "user", text: t });
+    pintarChat();
+    llamarIA("chat");
+  };
+  el.querySelector("#dcSend").onclick = enviar;
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); enviar(); } };
+  el.querySelector("#dcBack").onclick = () => modalPuesto(puesto.id, modo);
+  el.querySelector("#dcGen").onclick = () => llamarIA("generar");
+  pintarChat();
+  llamarIA("chat");
 }
 
 function modalNiveles() {
