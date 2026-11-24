@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --ink:#14213d; --ink-2:#4a5672; --ink-3:#8790a5;
@@ -48,7 +50,6 @@
   h2 + .nota-h{color:var(--ink-3);font-size:13px;margin:0 0 14px}
   .panel{background:var(--surface);border-radius:10px;padding:22px 24px;margin-bottom:18px;border:1px solid var(--rule)}
 
-  /* Indicadores: una sola franja dividida, no tarjetas sueltas */
   .franja{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border:1px solid var(--rule);border-radius:10px;margin-bottom:18px}
   .franja > div{padding:18px 22px;border-left:1px solid var(--rule)}
   .franja > div:first-child{border-left:0}
@@ -57,7 +58,6 @@
   .franja .l{color:var(--ink-2);font-size:13px;margin-top:4px}
   @media(max-width:860px){.franja{grid-template-columns:1fr 1fr}.franja > div:nth-child(3){border-left:0}.franja > div:nth-child(n+3){border-top:1px solid var(--rule)}}
 
-  /* Distribución por categoría */
   .banda{display:flex;height:44px;border-radius:7px;overflow:hidden;background:var(--rule-2);gap:2px}
   .banda > div{display:flex;align-items:center;padding:0 12px;color:#fff;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;min-width:0}
   .cats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:16px}
@@ -82,7 +82,6 @@
   .cat::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c,var(--c-pen))}
   .cat-Extraordinario{--c:var(--c-ext)}.cat-Destacado{--c:var(--c-des)}.cat-Esperado{--c:var(--c-esp)}.cat-Insuficiente{--c:var(--c-ins)}.cat-Pendiente,.cat-Sin{--c:var(--c-pen);color:var(--ink-3)}
 
-  /* Retratos */
   .av{border-radius:50%;background:#d9dfe9 center/cover no-repeat;display:inline-flex;align-items:center;justify-content:center;font-weight:600;color:var(--ink-2);flex:none}
   .av.s{width:34px;height:34px;font-size:12px}
   .av.m{width:84px;height:84px;font-size:24px}
@@ -98,7 +97,6 @@
   .seccion{font-size:15px;font-weight:600;margin:4px 0 12px;display:flex;gap:10px;align-items:baseline}
   .seccion span{color:var(--ink-3);font-weight:400;font-size:13px}
 
-  /* Perfil */
   .perfil{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
   .perfil .foto{position:relative}
   .perfil .foto button{position:absolute;right:-4px;bottom:-4px;background:var(--surface);border:1px solid var(--rule);border-radius:99px;font-size:12px;padding:4px 9px;cursor:pointer}
@@ -107,10 +105,21 @@
   .perfil .cifras{margin-left:auto;display:flex;gap:30px}
   .perfil .cifras .v{font-size:30px;font-weight:600;letter-spacing:-.02em}
   .perfil .cifras .l{color:var(--ink-2);font-size:13px}
-  .pestanas{display:flex;gap:24px;border-bottom:1px solid var(--rule);margin:22px 0 20px}
-  .pestanas button{all:unset;cursor:pointer;padding:10px 0;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .pestanas{display:flex;gap:24px;border-bottom:1px solid var(--rule);margin:0 0 20px;align-items:center;flex-wrap:wrap}
+  .pestanas button{all:unset;cursor:pointer;padding:10px 2px;color:var(--ink-2);border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14.5px}
+  .pestanas button:hover{color:var(--ink)}
   .pestanas button.on{color:var(--ink);border-color:var(--ink);font-weight:600}
   .pestanas .der{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+  .sim-banner{background:#14213d;color:#fff;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+  .sim-banner small{color:#b9c2d6;display:block;font-size:12px}
+  .sim-banner input.sim-tit{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);color:#fff;border-radius:6px;padding:5px 10px;font-weight:600;font-size:14px;width:260px;max-width:100%}
+  .sim-banner input.sim-tit::placeholder{color:#9aa6bd}
+  .sim-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
+  .sim-card{background:var(--surface);border:1.5px solid var(--rule);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left}
+  .sim-card:hover{border-color:var(--accent);box-shadow:0 3px 12px rgba(42,85,208,.09)}
+  .sim-card b{font-size:15.5px;color:var(--ink)}
+  .sim-card span{font-size:13px;color:var(--ink-2)}
 
   .rubro{display:grid;grid-template-columns:minmax(180px,1.3fr) 2fr 112px;gap:6px 18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule-2)}
   .rubro:last-child{border-bottom:0}
@@ -131,54 +140,17 @@
   .qa{margin-bottom:18px} .qa b{display:block;font-weight:600;margin-bottom:3px}
   .vacio{color:var(--ink-3)}
 
-  /* Formulario de evaluación */
-  .obj{border-top:1px solid var(--rule);padding:22px 0}
-  .obj:first-child{border-top:0;padding-top:4px}
-  .obj-h{display:flex;justify-content:space-between;gap:16px;align-items:baseline;flex-wrap:wrap}
-  .obj-h .t{font-weight:600;font-size:15px}
-  .obj-h .t span{display:block;font-weight:400;color:var(--ink-3);font-size:12.5px;margin-top:2px}
-  .obj-h .pp{color:var(--ink-2);font-size:13px;white-space:nowrap}
-  .obj-cols{display:grid;grid-template-columns:1.3fr 1fr;gap:24px;margin-top:12px}
-  .obj-cols > div:last-child{position:sticky;top:20px;align-self:start}
-  @media(max-width:900px){.obj-cols{grid-template-columns:1fr}.obj-cols > div:last-child{position:static}}
-  .auto{background:#f6f8fb;border-radius:8px;padding:14px 16px;font-size:13px}
-  .auto table td,.auto table th{font-size:12.5px;padding:7px 6px}
-  .auto .ttl{color:var(--ink-3);font-size:12.5px;margin:12px 0 4px}
-  .auto .ttl:first-child{margin-top:0}
   label.f{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--ink-2);margin:14px 0 6px}
   label.f:first-child{margin-top:0}
   input[type=text],input[type=email],input[type=password],input[type=number],select,textarea{border:1px solid #cbd2de;border-radius:7px;padding:9px 11px;background:#fff;width:100%}
   textarea{min-height:84px;resize:vertical;line-height:1.5}
-  input.nota{width:96px;font-size:20px;font-weight:600;text-align:right;padding:6px 10px}
   .fila{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .mic{all:unset;cursor:pointer;font-size:12.5px;color:var(--accent);padding:2px 6px;border-radius:5px}
-  .mic:hover{background:var(--accent-soft)}
-  .mic.rec{background:var(--bad);color:#fff}
-  .req{font-size:13px} .req ul{list-style:none;padding:0;margin:4px 0 14px} .req li{margin:3px 0;padding-left:20px;position:relative}
-  .req li::before{position:absolute;left:0;font-weight:700}
-  .req li.ok::before{content:"✓";color:var(--ok)} .req li.no::before{content:"–";color:var(--ink-3)} .req li.no{color:var(--ink-2)}
-  .elegir{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .elegir button{all:unset;cursor:pointer;text-align:center;padding:11px 6px;border-radius:8px;border:1.5px solid var(--rule);background:#fff;font-weight:500;font-size:13.5px}
-  .elegir button:hover{border-color:var(--c)}
-  .elegir button.on{background:var(--c);border-color:var(--c);color:#fff}
-  @media(max-width:600px){.elegir{grid-template-columns:1fr 1fr}}
-  .pill-na{display:inline-block;font-size:12px;color:var(--ink-2);background:var(--rule-2);border-radius:5px;padding:2px 8px}
   .chk{width:18px;height:18px;accent-color:var(--ink);cursor:pointer}
-  .ia-estado{font-size:12.5px;color:var(--ink-3);margin-top:6px;min-height:16px}
   .matriz{overflow-x:auto;margin:0 -4px}
   .matriz table{min-width:640px}
-  .matriz th.p{text-align:center;padding:0 4px 10px;min-width:74px;font-size:12px;line-height:1.25;color:var(--ink-2)}
-  .matriz td.v{text-align:center;padding:9px 4px;font-weight:600;font-size:13px}
-  .matriz td.v span{display:block;border-radius:6px;padding:6px 0}
-  .matriz td.prom{text-align:center;color:var(--ink-2);font-size:13px;border-left:1px solid var(--rule)}
-  .matriz tr.total td{border-top:1px solid var(--rule);font-weight:600}
-  .matriz tr.catfila td{border-bottom:0;padding-top:4px}
-  .matriz .catpill{display:block;border-radius:6px;padding:6px 2px;color:#fff;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .matriz .catpill.vacia{background:var(--rule-2);color:var(--ink-3);font-weight:500}
   .toggle{display:inline-flex;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
   .toggle button{all:unset;cursor:pointer;padding:6px 12px;font-size:13px;color:var(--ink-2)}
   .toggle button.on{background:var(--ink);color:#fff}
-  .sug{display:flex;gap:10px;align-items:center;margin-bottom:14px;font-size:15px}
   .btn{all:unset;cursor:pointer;background:var(--ink);color:#fff;border-radius:7px;padding:10px 16px;font-weight:500;display:inline-block}
   .btn:hover{background:#22325a}
   .btn.sec{background:var(--surface);color:var(--ink);border:1px solid #cbd2de;padding:9px 15px}
@@ -191,8 +163,6 @@
   .centro{max-width:400px;margin:12vh auto;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:32px}
   .err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
   details summary{cursor:pointer;color:var(--accent);margin-top:10px;font-size:13px}
-  .mejor{color:var(--ok);font-size:12.5px;font-weight:500} .peor{color:var(--bad);font-size:12.5px;font-weight:500}
-
 
   /* Vacaciones */
   :root{--vac:#1d8a73}
@@ -262,6 +232,7 @@
   .onodo{all:unset;cursor:pointer;display:inline-flex;gap:10px;align-items:center;padding:6px 12px 6px 6px;border:1px solid var(--rule);border-radius:9px;background:var(--surface)}
   .onodo:hover{border-color:#b8c3d6} .onodo b{display:block;font-weight:500;font-size:13.5px} .onodo small{color:var(--ink-3);font-size:12px}
   .modal input[type=email]{width:100%}
+
   /* Estructura */
   .ocwrap{overflow:auto;max-height:78vh;padding:4px 0 10px}
   .oc{display:inline-block;min-width:100%}
@@ -290,6 +261,7 @@
   .ocb .vtag{font-size:10.5px;margin-top:3px}
   .pila{display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:9px;background:#f4f6f9}
   .pila-t{font-size:11px;color:var(--ink-3);text-align:center}
+
   /* Proyectos */
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
   .pcard{background:var(--surface);border:1px solid var(--rule);border-top:4px solid var(--pc);border-radius:10px;padding:16px 16px 10px}
@@ -304,25 +276,23 @@
   .vhist{margin-top:14px} .vhist summary{font-size:13px} .vhist-c{margin-top:8px;max-height:280px;overflow:auto} .vhist td{font-size:12.5px}
   @media(max-width:600px){.vcal .n{min-width:112px;font-size:12px;white-space:normal}.vacceso{flex-direction:column;align-items:flex-start}}
 </style>
-
 </head>
 <body>
 <div id="app"><div class="centro" style="color:var(--ink-3)">Cargando…</div></div>
 <script>
 /* =====================================================================
-   PORTAL DE GESTIÓN · Vacaciones
-   Proyecto de Supabase APARTE del de evaluaciones: aquí no existen evaluaciones.
+   PORTAL DE GESTIÓN · Vacaciones, Proyectos y Estructura (3 pestañas)
    ===================================================================== */
 const CONFIG = {
-  SUPABASE_URL: "https://nrdtivqcwoaojjkxapat.supabase.co",   // Project URL del proyecto NUEVO del portal
-  SUPABASE_KEY: "sb_publishable_v0GZCmNDZ7N0NOM51bvwXg_x9QtsIHL",   // llave publishable de ese proyecto (NUNCA la "secret")
+  SUPABASE_URL: "https://nrdtivqcwoaojjkxapat.supabase.co",
+  SUPABASE_KEY: "sb_publishable_v0GZCmNDZ7N0NOM51bvwXg_x9QtsIHL",
   NOMBRE: "Portal DIENN"
 };
 
 /* ---------- Utilidades ---------- */
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const limpiar = t => String(t == null ? "" : t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+const limpiar = t => String(t == null ? "" : t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
 const texto = v => String(v == null ? "" : v).replace(/\r/g, "").trim();
 const num = v => { if (typeof v === "number") return isFinite(v) ? v : null; const s = String(v == null ? "" : v).replace(",", ".").trim(); if (!s) return null; const n = Number(s); return isNaN(n) ? null : n; };
 const iniciales = n => texto(n).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join("");
@@ -345,11 +315,9 @@ function estado(t, err) { const el = $("estadoGuardado"); if (el) { el.textConte
 const ok = async pr => { const { data, error } = await pr; if (error) throw error; return data; };
 
 /* =====================================================================
-   15. VACACIONES
-   Se guarda en equipos.config.vac (misma fila y misma seguridad que tu equipo:
-   solo tú lo ves). Saldos en días hábiles; feriados de Venezuela calculados solos.
+   VACACIONES
    ===================================================================== */
-const VAC_REGLAS = { base: 15, inc: 1, tope: 30 };   // LOTTT art. 190
+const VAC_REGLAS = { base: 15, inc: 1, tope: 30 };
 let VAC = null;
 const pad2 = n => String(n).padStart(2, "0");
 const dISO = d => d.toISOString().slice(0, 10);
@@ -372,7 +340,6 @@ function serialISO(v) {
   return mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${pad2(mo)}-${pad2(d)}` : "";
 }
 
-/* ---------- Feriados nacionales de Venezuela (LOTTT art. 184) ---------- */
 function pascua(y) {
   const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
   const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
@@ -398,7 +365,6 @@ function diasHabiles(a, b) { if (!a || !b || b < a) return 0; let n = 0; for (le
 function feriadosEntre(a, b) { const out = []; if (!a || !b || b < a) return out; for (let s = a; s <= b; s = dSum(s, 1)) { const w = dDow(s); if (w !== 0 && w !== 6 && FER().has(s)) out.push(`${dTxt(s, false)} (${FER().get(s)})`); } return out; }
 function bloqueHabil(desde, n) { let s = desde; while (!habil(s)) s = dSum(s, 1); const ini = s; let c = 1; while (c < n) { s = dSum(s, 1); if (habil(s)) c++; } return [ini, s]; }
 
-/* ---------- Cálculo de saldos ---------- */
 const diasPorAnio = (p, n) => Math.min(VAC.reglas.base + Math.max(0, n + (num(p.extra) || 0) - 1) * VAC.reglas.inc, VAC.reglas.tope);
 function aniversario(p, y) { const md = p.ingreso.slice(5); return md === "02-29" && !bisiesto(y) ? `${y}-03-01` : `${y}-${md}`; }
 function aniosServicio(p, hoy) { if (!p.ingreso || p.ingreso > hoy) return 0; const y0 = +p.ingreso.slice(0, 4); let n = +hoy.slice(0, 4) - y0; if (aniversario(p, +hoy.slice(0, 4)) > hoy) n--; return Math.max(0, n); }
@@ -441,7 +407,6 @@ function cuentaVac(p, hoy = dHoy()) {
 const nDias = n => `${n.toLocaleString("es-VE")} ${Math.abs(n) === 1 ? "día" : "días"}`;
 const personaVac = id => VAC.personas.find(p => p.id === id);
 
-/* ---------- Ventana emergente ---------- */
 function cerrarModal() { document.querySelectorAll(".velo").forEach(v => v.remove()); document.removeEventListener("keydown", escModal); }
 function escModal(e) { if (e.key === "Escape") cerrarModal(); }
 function modal(html, ancho = 520) {
@@ -484,7 +449,6 @@ function prepararDrop(drop, input, fn) {
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f = e.dataTransfer.files[0]; if (f) fn(f); };
 }
 
-/* ---------- Calendario del mes ---------- */
 function leerVacExcel(R, hoy) {
   const h = R.findIndex(r => (r || []).some(x => limpiar(x) === "nombre"));
   if (h < 0) return null;
@@ -524,10 +488,12 @@ function leerVacExcel(R, hoy) {
 }
 
 /* =====================================================================
-   MÓDULO EQUIPO: estructura (puestos y vacantes), proyectos y suplencias
+   MÓDULO EQUIPO: Estructura (Actual, Aspiracional, Simulador) y Proyectos
    ===================================================================== */
-let DIR = [], NIVELES = [], PUESTOS = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
-const EQ = { fecha: null, zoom: null, modo: "proyecto" };
+let DIR = [], NIVELES = [], PUESTOS = [], PUESTOS_ASP = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
+let ASP_TABLA_OK = true, SIM_TABLA_OK = true, SIM_LISTA = [], SIM_ACC = [], USUARIOS_EST = [];
+const EQ = { fecha: null, zoom: null, modo: "proyecto", tab: "actual" };
+const SIM = { activo: false, id: null, propietario_id: null, permiso: "dueno", origen: null, titulo: "", puestos: [], sucio: false };
 const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
 const COLORES_PROY = ["#e3a21a", "#2a55d0", "#6b7280", "#d0662a", "#2e9e6e", "#5b8fd6", "#1f9aa8", "#2b5ea7", "#4a5672", "#c2413a", "#7b4bc2"];
 const ROLES = ["Líder", "Co-líder", "Gerente", "Apoyo", "Miembro", "Pasante"];
@@ -540,10 +506,69 @@ function acumula(pid) { const d = dirDe(pid), n = d && d.nivel_id ? nivel(d.nive
 const tokens = n => limpiar(n).replace(/[^a-z ]/g, "").split(" ").filter(Boolean);
 function mismaPersona(a, b) { const x = tokens(a), y = tokens(b); if (!x.length || !y.length || x[0] !== y[0]) return false; const [c, l] = x.length <= y.length ? [x, y] : [y, x]; return c.every(t => l.includes(t)); }
 
+/* Estructura Aspiracional del PowerPoint (ESTRUCTURA ASPIRACION) */
+const ESTRUCTURA_ASPIRACIONAL_PPT = [
+  ["dir", "Director de Innovación, Estrategia y Nuevos Negocios (B1)", "N1", null, "Charles Dittmar", false],
+  ["asist", "Asistente Administrativo · Staff (B5)", "APO", "dir", "Karolina Mendez", false],
+  ["gpe", "Gerente de Planificación Estratégica (B3)", "B3", "dir", "Katherina Rosales", false],
+  ["cpe1", "Coordinador de Planificación Estratégica (B4)", "B4", "gpe", "Katerin Cristhian", false],
+  ["cpe2", "Coordinador de Planificación Estratégica (B4)", "B4", "gpe", "Gianfranco Mastrangelo", false],
+  ["dnn", "Director de Nuevos Negocios (Proyección)", "N2", "dir", null, true],
+  ["gnn", "Gerente Nuevos Negocios B3 (B4+*)", "B3", "dnn", "Luis Godoy", false],
+  ["vnn", "Gerencia B4+", "B4", "dnn", null, false],
+  ["dicv", "Director de Innovación Cadena de Valor (Proyección)", "N2", "dir", null, true],
+  ["gic", "Gerente Aplicación de Innovación Comercial (B3)", "B3", "dicv", "Jose L Hernández", false],
+  ["vicv", "Gerencia B4+", "B4", "dicv", null, false],
+  ["dtec", "Director de Tecnología (Proyección)", "N2", "dir", null, true],
+  ["gpt", "Gerente Procesos y Tecnología B3 (B4+*)", "B3", "dtec", "David Tovar", false],
+  ["vtec", "Gerencia B4+", "B4", "dtec", null, false],
+  ["gme", "Gerente Método y Exploración Innovación y Nuevos Negocios (B3)", "B3", "dir", "Alejandra Guzmán", false],
+  ["ec", "Especialista de Conocimiento B4 (B5*)", "ESP", "gme", "Mariana Ocupatti", false],
+  ["ee1", "Especialista Exploración Innovación y Nuevos Negocios (B4)", "ESP", "gme", null, false],
+  ["ee2", "Especialista Exploración Innovación y Nuevos Negocios (B4)", "ESP", "gme", "Ana Carolina Pacheco", false],
+  ["gm", "Gerente Método Innovación y Nuevos Negocios (B4+)", "B4", "gme", "Guillermo Sosa", false],
+  ["an1", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", "Isabella Magio", false],
+  ["an2", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", "Andrea Linares", false],
+  ["an3", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", "Isabella Bolivar", false],
+  ["an4", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", "Maria Valentina Rodríguez", false],
+  ["an5", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", "Mikhaela Barboza", false],
+  ["an6", "Analista Exploración Innovación y Nuevos Negocios (B5)", "AN", "gme", null, false],
+  ["pas1", "Pasante", "PAS", "gme", "Luis", false],
+  ["pas2", "Pasante", "PAS", "gme", "Alejandro", false],
+  ["pas3", "Pasante", "PAS", "gme", null, false],
+  ["pas4", "Pasante", "PAS", "gme", null, false],
+  ["pas5", "Pasante", "PAS", "gme", null, false],
+  ["pas6", "Pasante", "PAS", "gme", null, false],
+  ["ggc", "Gerente Gestión del Cambio · Soporte Transformación (B3)", "B3", null, "Eugenia Machado", false],
+  ["agi", "Analista Gestión de la Innovación (B5)", "AN", "ggc", "Samantha Trabulsi", false],
+  ["egi", "Especialista Gestión de la Innovación (B4)", "ESP", "ggc", "Daniela Reina", false]
+];
+
 async function cargarEquipo() {
   const [d, n, pu, pr, m, ve, gp] = await Promise.all([ok(sb.rpc("directorio")), ok(sb.from("niveles").select("*").order("orden")), ok(sb.from("puestos").select("*")),
     ok(sb.from("proyectos").select("*").order("orden")), ok(sb.from("proyecto_miembros").select("*")), ok(sb.rpc("veo_estructura")), ok(sb.rpc("gestiono_proyectos"))]);
   DIR = d || []; NIVELES = n || []; PUESTOS = pu || []; PROY = pr || []; MIEMB = m || []; PERM = { estructura: !!ve, proyectos: !!gp };
+  try {
+    PUESTOS_ASP = (await ok(sb.from("puestos_aspiracional").select("*"))) || [];
+    ASP_TABLA_OK = true;
+  } catch (e) {
+    PUESTOS_ASP = [];
+    ASP_TABLA_OK = false;
+  }
+  if (PERM.estructura) {
+    try {
+      const [sl, sa, ue] = await Promise.all([
+        ok(sb.from("simulaciones_estructura").select("*").order("updated_at", { ascending: false })),
+        ok(sb.from("simulacion_accesos").select("*")),
+        ok(sb.rpc("usuarios_estructura"))
+      ]);
+      SIM_LISTA = sl || []; SIM_ACC = sa || []; USUARIOS_EST = ue || [];
+      SIM_TABLA_OK = true;
+    } catch (e) {
+      SIM_LISTA = []; SIM_ACC = []; USUARIOS_EST = [];
+      SIM_TABLA_OK = false;
+    }
+  }
 }
 async function ausenciasDel(fecha) {
   if (!PERM.estructura && !PERM.proyectos) return [];
@@ -551,30 +576,38 @@ async function ausenciasDel(fecha) {
 }
 const textoAus = a => a ? `De vacaciones hasta el ${dTxt(a.hasta, false)}${a.suplente_id ? ` · lo cubre ${esc(primerNombre(nombreDe(a.suplente_id)))}` : ""}` : "";
 
-/* ---------- Estructura (organigrama con vacantes) ---------- */
-function hijosDe(id) {
-  return PUESTOS.filter(p => p.reporta_a === id).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || (a.orden || 0) - (b.orden || 0) || (a.persona_id ? 0 : 1) - (b.persona_id ? 0 : 1) || a.cargo.localeCompare(b.cargo, "es"));
+/* ---------- Helpers genéricos de organigrama (sirven para Actual, Aspiracional y Simulador) ---------- */
+function hijosEn(lista, id) {
+  return lista.filter(p => p.reporta_a === id).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || (a.orden || 0) - (b.orden || 0) || ((a.persona_id || a.nombre_libre) ? 0 : 1) - ((b.persona_id || b.nombre_libre) ? 0 : 1) || a.cargo.localeCompare(b.cargo, "es"));
 }
-function descPuestos(id) { const out = new Set(), q = [id]; while (q.length) { const x = q.shift(); PUESTOS.forEach(p => { if (p.reporta_a === x && !out.has(p.id)) { out.add(p.id); q.push(p.id); } }); } return out; }
-async function vistaEstructura(m) {
-  const hoy = dHoy(); EQ.fecha ||= hoy;
-  const aus = await ausenciasDel(EQ.fecha), ausDe = pid => aus.find(a => a.persona_id === pid);
-  const admin = soyAdmin(), ids = new Set(PUESTOS.map(p => p.id));
-  const cubiertos = PUESTOS.filter(p => p.persona_id).length, vac = PUESTOS.length - cubiertos, proc = PUESTOS.filter(p => !p.persona_id && p.en_proceso).length, interinos = PUESTOS.filter(p => !p.persona_id && p.encargado_id).length;
-  const fuera = PUESTOS.filter(p => p.persona_id && ausDe(p.persona_id)).length;
-  const caja = p => { const a = p.persona_id ? ausDe(p.persona_id) : null, col = COLOR_NIVEL[p.nivel_id] || "#8790a5";
-    const enc = !p.persona_id && p.encargado_id, otros = p.persona_id ? PUESTOS.filter(x => !x.persona_id && x.encargado_id === p.persona_id) : [];
-    return `<button class="ocb${p.persona_id ? "" : " vac"}${enc ? " int" : ""}${a ? " aus" : ""}" data-pu="${p.id}" style="--nc:${col}">
-      <span class="ocn">${p.persona_id ? esc(nombreDe(p.persona_id)) : "Vacante"}</span><span class="occ">${esc(p.cargo)}</span>
+function descEn(lista, id) {
+  const out = new Set(), q = [id];
+  while (q.length) { const x = q.shift(); lista.forEach(p => { if (p.reporta_a === x && !out.has(p.id)) { out.add(p.id); q.push(p.id); } }); }
+  return out;
+}
+function titularPuesto(p) {
+  if (p.persona_id) return nombreDe(p.persona_id);
+  if (p.nombre_libre) return p.nombre_libre;
+  return "";
+}
+function construirArbolHTML(lista, ausDe) {
+  const ids = new Set(lista.map(p => p.id));
+  const caja = p => {
+    const tit = titularPuesto(p), ocupado = !!tit;
+    const a = p.persona_id && ausDe ? ausDe(p.persona_id) : null, col = COLOR_NIVEL[p.nivel_id] || "#8790a5";
+    const enc = !ocupado && p.encargado_id, otros = p.persona_id ? lista.filter(x => !titularPuesto(x) && x.encargado_id === p.persona_id) : [];
+    return `<button class="ocb${ocupado ? "" : " vac"}${enc ? " int" : ""}${a ? " aus" : ""}" data-pu="${p.id}" style="--nc:${col}">
+      <span class="ocn">${ocupado ? esc(tit) : "Vacante"}</span><span class="occ">${esc(p.cargo)}</span>
       ${enc ? `<span class="ocint">Encargado/a: ${esc(nombreDe(p.encargado_id))}</span>` : ""}
       ${otros.length ? `<span class="ocint">También a cargo de ${otros.map(x => esc(x.cargo)).join(", ")}</span>` : ""}
       ${p.persona_id && p.supervisor_interino_id ? `<span class="ocint">Reporta temporalmente a ${esc(primerNombre(nombreDe(p.supervisor_interino_id)))}</span>` : ""}
-      ${!p.persona_id && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}</button>`; };
+      ${!ocupado && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}</button>`;
+  };
   const vistos = new Set();
   const rama = p => {
     if (vistos.has(p.id)) return ""; vistos.add(p.id);
-    const hijos = hijosDe(p.id).filter(h => !vistos.has(h.id)); if (!hijos.length) return caja(p);
-    const hojas = hijos.filter(h => !PUESTOS.some(x => x.reporta_a === h.id)), items = [];
+    const hijos = hijosEn(lista, p.id).filter(h => !vistos.has(h.id)); if (!hijos.length) return caja(p);
+    const hojas = hijos.filter(h => !lista.some(x => x.reporta_a === h.id)), items = [];
     hijos.filter(h => !hojas.includes(h)).forEach(h => items.push({ k: (nivel(h.nivel_id) || {}).orden || 99, html: `<li>${rama(h)}</li>` }));
     if (hojas.length >= 3) {
       const grupos = {}; hojas.forEach(h => (grupos[h.nivel_id] ||= []).push(h));
@@ -583,80 +616,453 @@ async function vistaEstructura(m) {
     items.sort((a, b) => a.k - b.k);
     return `${caja(p)}<ul>${items.map(i => i.html).join("")}</ul>`;
   };
-  const raices = PUESTOS.filter(p => !p.reporta_a || !ids.has(p.reporta_a)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99));
-  const arbol = raices.map(r => `<li>${rama(r)}</li>`).join("");
-  const sinPuesto = admin ? PERSONAS.filter(p => p.activo !== false && !puestoDe(p.id)) : [];
+  const raices = lista.filter(p => !p.reporta_a || !ids.has(p.reporta_a)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99));
+  return raices.map(r => `<li>${rama(r)}</li>`).join("");
+}
+
+/* ---------- Vista Estructura (3 pestañas: Actual, Aspiracional, Simulador) ---------- */
+async function vistaEstructura(m) {
+  const hoy = dHoy(); EQ.fecha ||= hoy;
+  const tab = EQ.tab || "actual";
+  const puedeEditar = PERM.estructura || soyAdmin();
+  const pestanasHTML = `<div class="pestanas no-print" id="eTabs">
+    <button data-et="actual" class="${tab === "actual" ? "on" : ""}">1. Estructura Actual</button>
+    <button data-et="aspiracional" class="${tab === "aspiracional" ? "on" : ""}">2. Estructura Aspiracional</button>
+    <button data-et="simulador" class="${tab === "simulador" ? "on" : ""}">3. Simulador privado${SIM.activo ? " ●" : ""}</button>
+  </div>`;
+
+  if (tab === "simulador") return vistaSimulador(m, pestanasHTML);
+
+  const esAsp = tab === "aspiracional";
+  const lista = esAsp ? PUESTOS_ASP : PUESTOS;
+  const aus = !esAsp ? await ausenciasDel(EQ.fecha) : [];
+  const ausDe = pid => aus.find(a => a.persona_id === pid);
+  const cubiertos = lista.filter(p => titularPuesto(p)).length;
+  const vac = lista.length - cubiertos;
+  const proc = lista.filter(p => !titularPuesto(p) && p.en_proceso).length;
+  const interinos = lista.filter(p => !titularPuesto(p) && p.encargado_id).length;
+  const fuera = !esAsp ? lista.filter(p => p.persona_id && ausDe(p.persona_id)).length : 0;
+  const arbol = lista.length ? construirArbolHTML(lista, esAsp ? null : ausDe) : "";
+  const sinPuesto = !esAsp && soyAdmin() ? PERSONAS.filter(p => p.activo !== false && !puestoDe(p.id)) : [];
+
   m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
-      <div><h1>Estructura</h1><p class="sub" style="margin-bottom:18px">Puestos cubiertos, vacantes y encargadurías${admin ? ". Haz clic en un puesto para editarlo, asignar a alguien, dejarlo vacante o nombrar un encargado." : ". Solo la ven las personas que autoriza el super-admin."}</p></div>
+      <div><h1>Estructura</h1><p class="sub" style="margin-bottom:14px">${esAsp ? "Estructura aspiracional DIENN (editable en vivo por los 3). Haz clic en cualquier puesto para ajustarlo." : "Puestos cubiertos, vacantes y encargadurías. Haz clic en un puesto para editarlo, asignar a alguien, dejarlo vacante o nombrar un encargado."}</p></div>
       <div class="fila no-print" style="margin-bottom:14px">
-        <label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>
-        ${admin ? `<button class="btn sec" id="eNiv">Niveles y permisos</button><button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
-    ${!PUESTOS.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura cargada</h2><p class="nota-h">${admin ? "Carga la estructura actual (la de tu presentación, con sus vacantes) y luego ajústala aquí cuando cambie. Las personas se emparejan por nombre con las que ya están en el portal; las que falten se agregan." : "El super-admin aún no la ha cargado."}</p>${admin ? (ESTRUCTURA_INICIAL.length ? `<button class="btn" id="eSemilla">Cargar estructura actual</button><div class="err" id="eErr"></div>` : `<div class="aviso" style="display:block">Para cargar la estructura actual, abre una vez desde tu computadora el archivo de carga inicial (portal_carga_inicial.html) y pulsa “Cargar estructura actual”. También puedes armarla aquí con “+ Agregar puesto”.</div>`) : ""}</div>` : `
-    <div class="franja">
-      <div><div class="v">${PUESTOS.length}</div><div class="l">Puestos</div></div>
-      <div><div class="v">${cubiertos}</div><div class="l">Cubiertos</div></div>
-      <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).length ? ` (${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).join(", ")})` : ""}</div></div>
-      <div><div class="v">${fuera}</div><div class="l">De vacaciones ${EQ.fecha === hoy ? "hoy" : "el " + dTxt(EQ.fecha, false)}</div></div></div>
-    <div class="panel" style="padding:14px 16px">
-      <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
-        <div class="leyenda" style="margin:0">${NIVELES.filter(n => PUESTOS.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span><span><i class="sw" style="background:#e6ecfb"></i>Con encargado/a</span></div>
-        <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
-      <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
-    ${sinPuesto.length ? `<div class="panel"><h2>Personas sin puesto</h2><p class="nota-h">Están en el portal pero no ocupan ningún puesto del organigrama. Abre un puesto (o crea uno) y asígnalas.</p><div class="vprox-l" style="flex-wrap:wrap">${sinPuesto.map(p => `<span class="vchip" style="cursor:default"><b>${esc(p.nombre)}</b></span>`).join("")}</div></div>` : ""}`}`;
-  $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
-  if (admin) { $("eNiv").onclick = modalNiveles; $("eNuevo").onclick = () => modalPuesto(null); }
-  if ($("eSemilla")) $("eSemilla").onclick = () => cargarSemilla($("eErr"));
-  m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => admin ? modalPuesto(b.dataset.pu) : modalInfoPuesto(b.dataset.pu, aus));
+        ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
+        ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
+        ${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+    ${pestanasHTML}
+    ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
+      : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
+        <p class="nota-h">${esAsp ? "Carga los 34 puestos de tu presentación “ESTRUCTURA ASPIRACION” con un clic y luego edítala aquí en vivo cuando quieras." : "Puedes armarla aquí con “+ Agregar puesto”."}</p>
+        ${esAsp && puedeEditar ? `<button class="btn" id="eCargarAsp">Cargar estructura aspiracional del PPT</button><div class="err" id="eErr"></div>` : ""}</div>`
+      : `<div class="franja">
+        <div><div class="v">${lista.length}</div><div class="l">Puestos</div></div>
+        <div><div class="v">${cubiertos}</div><div class="l">Cubiertos</div></div>
+        <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).length ? ` (${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).join(", ")})` : ""}</div></div>
+        <div><div class="v">${esAsp ? lista.filter(p => p.nivel_id === "N2").length : fuera}</div><div class="l">${esAsp ? "Direcciones proyectadas (N2)" : `De vacaciones ${EQ.fecha === hoy ? "hoy" : "el " + dTxt(EQ.fecha, false)}`}</div></div></div>
+      <div class="panel" style="padding:14px 16px">
+        <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
+          <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span><span><i class="sw" style="background:#e6ecfb"></i>Con encargado/a</span></div>
+          <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
+        <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
+      ${sinPuesto.length ? `<div class="panel"><h2>Personas sin puesto</h2><p class="nota-h">Están en el portal pero no ocupan ningún puesto del organigrama actual. Abre un puesto (o crea uno) y asígnalas.</p><div class="vprox-l" style="flex-wrap:wrap">${sinPuesto.map(p => `<span class="vchip" style="cursor:default"><b>${esc(p.nombre)}</b></span>`).join("")}</div></div>` : ""}`}`;
+
+  enlazarTabsEstructura(m);
+  if ($("eFecha")) $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
+  if ($("eNiv")) $("eNiv").onclick = modalNiveles;
+  if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
+  if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
+  m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
+  enlazarZoomEstructura();
+}
+
+function enlazarTabsEstructura(m) {
+  const t = $("eTabs"); if (!t) return;
+  t.onclick = e => {
+    const b = e.target.closest("[data-et]"); if (!b) return;
+    EQ.tab = b.dataset.et; EQ.zoom = null; vistaEstructura(m);
+  };
+}
+function enlazarZoomEstructura() {
   const oc = $("oc"), wrap = $("ocwrap");
-  if (oc) {
-    const aplicar = () => { oc.style.zoom = EQ.zoom; };
-    const ajustar = () => { oc.style.zoom = 1; EQ.zoom = Math.max(0.5, Math.min(1, (wrap.clientWidth - 4) / oc.scrollWidth)); aplicar(); };
-    if (EQ.zoom == null) ajustar(); else aplicar();
-    $("zAjustar").onclick = ajustar; $("zMas").onclick = () => { EQ.zoom = Math.min(1.4, EQ.zoom + 0.1); aplicar(); }; $("zMenos").onclick = () => { EQ.zoom = Math.max(0.35, EQ.zoom - 0.1); aplicar(); };
+  if (!oc || !wrap) return;
+  const aplicar = () => { oc.style.zoom = EQ.zoom; };
+  const ajustar = () => { oc.style.zoom = 1; EQ.zoom = Math.max(0.45, Math.min(1, (wrap.clientWidth - 4) / oc.scrollWidth)); aplicar(); };
+  if (EQ.zoom == null) ajustar(); else aplicar();
+  if ($("zAjustar")) $("zAjustar").onclick = ajustar;
+  if ($("zMas")) $("zMas").onclick = () => { EQ.zoom = Math.min(1.4, EQ.zoom + 0.1); aplicar(); };
+  if ($("zMenos")) $("zMenos").onclick = () => { EQ.zoom = Math.max(0.3, EQ.zoom - 0.1); aplicar(); };
+}
+
+async function cargarAspiracionalPPT(errEl) {
+  errEl.textContent = "Cargando estructura aspiracional…";
+  try {
+    const ids = {};
+    ESTRUCTURA_ASPIRACIONAL_PPT.forEach(([k]) => ids[k] = uuid());
+    const filas = ESTRUCTURA_ASPIRACIONAL_PPT.map(([k, cargo, nv, rep, nom, enProc], i) => {
+      const ex = nom ? DIR.find(d => mismaPersona(d.nombre, nom)) : null;
+      return {
+        id: ids[k], cargo, nivel_id: nv, reporta_a: rep ? ids[rep] : null,
+        persona_id: ex ? ex.id : null,
+        nombre_libre: ex ? null : (nom || null),
+        en_proceso: !!enProc, orden: i
+      };
+    });
+    await ok(sb.from("puestos_aspiracional").insert(filas));
+    await recargar("Estructura aspiracional cargada");
+  } catch (e) { errEl.textContent = "No se pudo cargar: " + mensajeError(e); }
+}
+
+/* ---------- Pestaña 3: Simulador privado (bóveda por persona + compartir + sustituir) ---------- */
+function iniciarSimuladorDesde(origen) {
+  const fuente = origen === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+  SIM.activo = true; SIM.id = null; SIM.propietario_id = YO ? YO.id : null; SIM.permiso = "dueno";
+  SIM.origen = origen; SIM.sucio = true;
+  SIM.titulo = `Simulación (${origen === "aspiracional" ? "desde Aspiracional" : "desde Actual"})`;
+  SIM.puestos = fuente.map(p => ({ ...p }));
+  EQ.zoom = null;
+  vistaEstructura($("main"));
+}
+function abrirSimulacionGuardada(simId) {
+  const s = SIM_LISTA.find(x => x.id === simId); if (!s) return;
+  const esDueno = YO && s.propietario_id === YO.id;
+  const acc = SIM_ACC.find(a => a.simulacion_id === s.id && YO && a.persona_id === YO.id);
+  SIM.activo = true; SIM.id = s.id; SIM.propietario_id = s.propietario_id;
+  SIM.permiso = esDueno ? "dueno" : (acc && acc.permiso === "editar" ? "editar" : "ver");
+  SIM.origen = s.origen || "guardada"; SIM.titulo = s.titulo || "Simulación";
+  SIM.puestos = Array.isArray(s.puestos) ? s.puestos.map(p => ({ ...p })) : [];
+  SIM.sucio = false; EQ.zoom = null;
+  vistaEstructura($("main"));
+}
+function cerrarSimulador() {
+  if (SIM.sucio && SIM.permiso !== "ver" && !confirm("Tienes cambios sin guardar en esta simulación. ¿Salir sin guardar?")) return;
+  SIM.activo = false; SIM.id = null; SIM.propietario_id = null; SIM.permiso = "dueno"; SIM.origen = null; SIM.titulo = ""; SIM.puestos = []; SIM.sucio = false;
+  EQ.zoom = null;
+  vistaEstructura($("main"));
+}
+async function guardarSimulacion(comoCopia = false) {
+  const titulo = texto(SIM.titulo) || "Simulación sin título";
+  estado("Guardando simulación…");
+  try {
+    if (!SIM.id || comoCopia) {
+      const id = uuid();
+      const fila = { id, titulo: comoCopia ? `${titulo} (copia)` : titulo, origen: comoCopia ? "copia" : (SIM.origen || "actual"), propietario_id: YO.id, puestos: SIM.puestos, updated_at: new Date().toISOString() };
+      await ok(sb.from("simulaciones_estructura").insert(fila));
+      SIM.id = id; SIM.propietario_id = YO.id; SIM.permiso = "dueno"; SIM.titulo = fila.titulo; SIM.sucio = false;
+    } else {
+      await ok(sb.from("simulaciones_estructura").update({ titulo, puestos: SIM.puestos, updated_at: new Date().toISOString() }).eq("id", SIM.id));
+      SIM.sucio = false;
+    }
+    await cargarEquipo();
+    estado("Simulación guardada en tu bóveda privada");
+    vistaEstructura($("main"));
+  } catch (e) {
+    estado("No se guardó la simulación", true);
+    alert("No se pudo guardar: " + mensajeError(e));
   }
 }
-function modalInfoPuesto(id, aus) {
-  const p = PUESTOS.find(x => x.id === id); if (!p) return;
-  const jefe = PUESTOS.find(x => x.id === p.reporta_a), a = p.persona_id ? aus.find(x => x.persona_id === p.persona_id) : null;
+async function eliminarSimulacion(simId) {
+  const s = SIM_LISTA.find(x => x.id === simId);
+  if (!confirm(`¿Eliminar definitivamente la simulación “${s ? s.titulo : ""}”?`)) return;
+  try {
+    await ok(sb.from("simulaciones_estructura").delete().eq("id", simId));
+    if (SIM.id === simId) { SIM.activo = false; SIM.id = null; SIM.puestos = []; SIM.sucio = false; }
+    await cargarEquipo();
+    estado("Simulación eliminada");
+    vistaEstructura($("main"));
+  } catch (e) { alert("No se eliminó: " + mensajeError(e)); }
+}
+function modalCompartirSim() {
+  if (!SIM.id) { alert("Primero guarda la simulación para poder compartirla."); return; }
+  const otros = USUARIOS_EST.filter(u => !YO || u.id !== YO.id);
+  const accDe = pid => (SIM_ACC.find(a => a.simulacion_id === SIM.id && a.persona_id === pid) || {}).permiso || "";
+  const el = modal(`<h2>Compartir simulación</h2>
+    <p class="nota-h">Elige quién puede ver o editar <b>${esc(SIM.titulo)}</b>. Si dejas “Sin acceso”, seguirá siendo 100% privada para ti.</p>
+    <table class="vmov"><tr><th>Persona</th><th style="width:170px">Permiso</th></tr>
+    ${otros.map(u => { const cur = accDe(u.id); return `<tr><td><b>${esc(u.nombre)}</b></td><td><select data-cs="${u.id}">
+      <option value="" ${!cur ? "selected" : ""}>Sin acceso (privado)</option>
+      <option value="ver" ${cur === "ver" ? "selected" : ""}>Solo ver y PDF</option>
+      <option value="editar" ${cur === "editar" ? "selected" : ""}>Ver y editar</option>
+    </select></td></tr>`; }).join("") || `<tr><td colspan="2" class="vacio">No hay otras personas con acceso a Estructura.</td></tr>`}</table>
+    <div class="err" id="csErr"></div>
+    <div class="fila" style="justify-content:flex-end;margin-top:16px"><button class="btn sec" id="csNo">Cancelar</button><button class="btn" id="csOk">Guardar permisos</button></div>`, 520);
+  el.querySelector("#csNo").onclick = cerrarModal;
+  el.querySelector("#csOk").onclick = async () => {
+    const err = el.querySelector("#csErr"); err.textContent = "Guardando…";
+    try {
+      await ok(sb.from("simulacion_accesos").delete().eq("simulacion_id", SIM.id));
+      const nuevos = [];
+      el.querySelectorAll("[data-cs]").forEach(s => { if (s.value) nuevos.push({ simulacion_id: SIM.id, persona_id: s.dataset.cs, permiso: s.value }); });
+      if (nuevos.length) await ok(sb.from("simulacion_accesos").insert(nuevos));
+      await cargarEquipo();
+      cerrarModal(); estado("Permisos de acceso actualizados"); vistaEstructura($("main"));
+    } catch (e) { err.textContent = "No se guardó: " + mensajeError(e); }
+  };
+}
+function modalAplicarSim() {
+  const el = modal(`<h2>Aplicar esta simulación</h2>
+    <p class="nota-h">Puedes reemplazar la <b>Estructura Actual</b> o la <b>Estructura Aspiracional</b> con los ${SIM.puestos.length} puestos de esta simulación. Esta acción sobrescribe la estructura elegida para los 3.</p>
+    <div class="sim-cards" style="grid-template-columns:1fr 1fr;margin-top:10px">
+      <button class="sim-card" id="apAct"><b>Sustituir Estructura Actual</b><span>Reemplaza el organigrama actual en vivo (los nombres libres sin usuario en el portal quedarán como vacantes).</span></button>
+      <button class="sim-card" id="apAsp"><b>Sustituir Estructura Aspiracional</b><span>Reemplaza el organigrama aspiracional conservando nombres libres y proyecciones.</span></button>
+    </div>
+    <div class="err" id="apErr"></div>
+    <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="apNo">Cancelar</button></div>`, 580);
+  el.querySelector("#apNo").onclick = cerrarModal;
+  const aplicar = async destino => {
+    const esAsp = destino === "aspiracional";
+    const nombreDest = esAsp ? "Estructura Aspiracional" : "Estructura Actual";
+    if (!confirm(`¿Seguro que deseas SUSTITUIR toda la ${nombreDest} por esta simulación? Esta acción no se puede deshacer.`)) return;
+    const err = el.querySelector("#apErr"); err.textContent = `Aplicando en ${nombreDest}…`;
+    const tabla = esAsp ? "puestos_aspiracional" : "puestos";
+    try {
+      // Mapeamos nuevos UUIDs para evitar colisiones y respetamos jerarquía (padres antes que hijos)
+      const mapa = new Map();
+      SIM.puestos.forEach(p => mapa.set(p.id, uuid()));
+      const pendientes = SIM.puestos.map(p => ({ ...p }));
+      const ordenados = [], puestosIds = new Set();
+      let guard = 0;
+      while (pendientes.length && guard++ < 50) {
+        for (let i = pendientes.length - 1; i >= 0; i--) {
+          const x = pendientes[i];
+          if (!x.reporta_a || !mapa.has(x.reporta_a) || puestosIds.has(x.reporta_a)) {
+            ordenados.push(x); puestosIds.add(x.id); pendientes.splice(i, 1);
+          }
+        }
+      }
+      pendientes.forEach(x => ordenados.push(x));
+      const filas = ordenados.map((p, idx) => {
+        const base = {
+          id: mapa.get(p.id), cargo: p.cargo, nivel_id: p.nivel_id || "AN",
+          reporta_a: p.reporta_a && mapa.has(p.reporta_a) ? mapa.get(p.reporta_a) : null,
+          persona_id: p.persona_id || null, en_proceso: !!p.en_proceso, orden: idx,
+          encargado_id: p.encargado_id || null, supervisor_interino_id: p.supervisor_interino_id || null
+        };
+        if (esAsp) base.nombre_libre = p.persona_id ? null : (p.nombre_libre || null);
+        return base;
+      });
+      await ok(sb.from(tabla).delete().neq("id", "00000000-0000-0000-0000-000000000000"));
+      if (filas.length) await ok(sb.from(tabla).insert(filas));
+      cerrarModal();
+      EQ.tab = destino;
+      await recargar(`${nombreDest} sustituida con éxito`);
+    } catch (e) { err.textContent = "No se pudo aplicar: " + mensajeError(e); }
+  };
+  el.querySelector("#apAct").onclick = () => aplicar("actual");
+  el.querySelector("#apAsp").onclick = () => aplicar("aspiracional");
+}
+async function exportarSimPDF() {
+  const oc = $("oc"); if (!oc) return;
+  if (!window.html2canvas || !window.jspdf) { window.print(); return; }
+  estado("Generando PDF…");
+  const prevZoom = oc.style.zoom;
+  oc.style.zoom = 1;
+  try {
+    const canvas = await window.html2canvas(oc, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+    const margin = 28;
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.setTextColor(20, 33, 61);
+    pdf.text(SIM.titulo || "Simulación de Estructura · DIENN", margin, 30);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5); pdf.setTextColor(100, 110, 130);
+    pdf.text(`Confidencial · Generado el ${dTxt(dHoy())}`, margin, 44);
+    const maxW = pw - margin * 2, maxH = ph - 72;
+    const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+    const w = canvas.width * ratio, h = canvas.height * ratio;
+    pdf.addImage(imgData, "PNG", margin + (maxW - w) / 2, 56, w, h);
+    const slug = limpiar(SIM.titulo || "simulacion").replace(/[^a-z0-9]+/g, "_").slice(0, 40) || "simulacion";
+    pdf.save(`Estructura_${slug}_${dHoy()}.pdf`);
+    estado("PDF descargado");
+  } catch (e) {
+    estado("Error al generar PDF", true);
+    alert("No se pudo generar el PDF automáticamente. Puedes usar Ctrl+P para imprimir a PDF.");
+  } finally {
+    oc.style.zoom = prevZoom;
+  }
+}
+
+function vistaSimulador(m, pestanasHTML) {
+  if (!SIM_TABLA_OK) {
+    m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+        <div><h1>Estructura</h1><p class="sub" style="margin-bottom:14px">Simulador privado con bóveda por persona.</p></div></div>
+      ${pestanasHTML}
+      <div class="panel" style="max-width:720px"><h2>Falta activar las tablas del Simulador en Supabase</h2>
+        <p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_entrega1_simulador_privado.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`;
+    enlazarTabsEstructura(m);
+    return;
+  }
+
+  if (!SIM.activo) {
+    const mias = SIM_LISTA.filter(s => YO && s.propietario_id === YO.id);
+    const compartidas = SIM_LISTA.filter(s => YO && s.propietario_id !== YO.id);
+    const compCount = sid => SIM_ACC.filter(a => a.simulacion_id === sid).length;
+    const permDe = sid => (SIM_ACC.find(a => a.simulacion_id === sid && YO && a.persona_id === YO.id) || {}).permiso || "ver";
+
+    m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+        <div><h1>Estructura</h1><p class="sub" style="margin-bottom:14px">Tu espacio privado de simulación. Solo tú ves tus escenarios guardados, a menos que decidas compartirlos.</p></div></div>
+      ${pestanasHTML}
+      <div class="panel">
+        <h2>Crear nueva simulación</h2>
+        <p class="nota-h">Elige el punto de partida. Luego podrás guardarla en tu bóveda privada, descargarla en PDF, compartirla (solo ver o ver y editar) o sustituir la estructura Actual o Aspiracional.</p>
+        <div class="sim-cards" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+          <button class="sim-card" id="sDeActual">
+            <b>1. Partir de Estructura Actual</b>
+            <span>Clona los ${PUESTOS.length} puestos actuales para probar escenarios teóricos sin afectar el organigrama real.</span>
+          </button>
+          <button class="sim-card" id="sDeAsp" ${!PUESTOS_ASP.length ? 'style="opacity:.6"' : ""}>
+            <b>2. Partir de Estructura Aspiracional</b>
+            <span>${PUESTOS_ASP.length ? `Clona los ${PUESTOS_ASP.length} puestos de la estructura aspiracional.` : "Primero carga la Estructura Aspiracional en la pestaña 2."}</span>
+          </button>
+        </div>
+        <div class="err" id="sErr"></div>
+      </div>
+      <div class="dos">
+        <div class="panel">
+          <h2>Mis simulaciones privadas</h2>
+          <p class="nota-h">Nadie más puede verlas salvo que las compartas explícitamente.</p>
+          ${mias.length ? `<table class="vmov">${mias.map(s => { const cc = compCount(s.id); return `<tr class="clic" data-sopen="${s.id}">
+            <td><b>${esc(s.titulo)}</b><div style="font-size:12px;color:var(--ink-3)">${Array.isArray(s.puestos) ? s.puestos.length : 0} puestos · ${fechaHora(s.updated_at || s.created_at)}</div></td>
+            <td>${cc ? `<span class="vtag info">Compartida (${cc})</span>` : `<span class="vtag">Privada</span>`}</td>
+            <td class="num"><button class="btn peligro" style="padding:0;font-size:12.5px" data-sdel="${s.id}">Eliminar</button></td></tr>`; }).join("")}</table>` : `<p class="vacio" style="margin:6px 0 0">Aún no has guardado ninguna simulación.</p>`}
+        </div>
+        <div class="panel">
+          <h2>Compartidas conmigo</h2>
+          <p class="nota-h">Escenarios que otros miembros del equipo de Estructura compartieron contigo.</p>
+          ${compartidas.length ? `<table class="vmov">${compartidas.map(s => { const pm = permDe(s.id); return `<tr class="clic" data-sopen="${s.id}">
+            <td><b>${esc(s.titulo)}</b><div style="font-size:12px;color:var(--ink-3)">De ${esc(nombreDe(s.propietario_id))} · ${Array.isArray(s.puestos) ? s.puestos.length : 0} puestos</div></td>
+            <td class="num"><span class="vtag ${pm === "editar" ? "ok" : ""}">${pm === "editar" ? "Ver y editar" : "Solo ver"}</span></td></tr>`; }).join("")}</table>` : `<p class="vacio" style="margin:6px 0 0">Nadie ha compartido simulaciones contigo todavía.</p>`}
+        </div>
+      </div>`;
+    enlazarTabsEstructura(m);
+    $("sDeActual").onclick = () => iniciarSimuladorDesde("actual");
+    $("sDeAsp").onclick = () => { if (!PUESTOS_ASP.length) { $("sErr").textContent = "Primero carga la Estructura Aspiracional en la pestaña 2."; return; } iniciarSimuladorDesde("aspiracional"); };
+    m.querySelectorAll("[data-sopen]").forEach(tr => tr.onclick = e => { if (e.target.closest("[data-sdel]")) return; abrirSimulacionGuardada(tr.dataset.sopen); });
+    m.querySelectorAll("[data-sdel]").forEach(b => b.onclick = e => { e.stopPropagation(); eliminarSimulacion(b.dataset.sdel); });
+    return;
+  }
+
+  const esDueno = SIM.permiso === "dueno", puedeEd = SIM.permiso === "dueno" || SIM.permiso === "editar";
+  const lista = SIM.puestos;
+  const cubiertos = lista.filter(p => titularPuesto(p)).length;
+  const vac = lista.length - cubiertos;
+  const proc = lista.filter(p => !titularPuesto(p) && p.en_proceso).length;
+  const arbol = lista.length ? construirArbolHTML(lista, null) : "";
+
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Estructura</h1><p class="sub" style="margin-bottom:14px">${puedeEd ? "Editando simulación. Haz clic en cualquier puesto para modificarlo y pulsa Guardar cuando quieras conservar los cambios." : `Simulación compartida por ${esc(nombreDe(SIM.propietario_id))} en modo solo lectura.`}</p></div>
+      <div class="fila no-print" style="margin-bottom:14px">
+        <button class="btn sec" id="sVolver">← Volver</button>
+        <button class="btn sec" id="sPdf">Descargar PDF</button>
+        ${!puedeEd ? `<button class="btn" id="sCopia">Guardar copia propia</button>` : `
+          ${esDueno ? `<button class="btn sec" id="sComp">Compartir</button>` : ""}
+          <button class="btn sec" id="sAplicar">Sustituir Actual / Asp.</button>
+          <button class="btn sec" id="sNuevo">+ Puesto</button>
+          <button class="btn" id="sGuardar">${SIM.id ? "Guardar cambios" : "Guardar privado"}</button>`}
+      </div></div>
+    ${pestanasHTML}
+    <div class="sim-banner no-print">
+      <div class="fila" style="gap:12px">
+        ${puedeEd ? `<input type="text" class="sim-tit" id="sTit" value="${esc(SIM.titulo)}" placeholder="Nombre de la simulación">` : `<b style="font-size:15px">${esc(SIM.titulo)}</b>`}
+        <small>${esDueno ? (SIM.id ? "En tu bóveda privada" : "Borrador aún no guardado") : `Compartida por ${esc(nombreDe(SIM.propietario_id))} · ${puedeEd ? "Ver y editar" : "Solo ver"}`}${SIM.sucio ? " · Cambios sin guardar" : ""}</small>
+      </div>
+      ${esDueno && SIM.id ? `<button class="btn sec" id="sDel" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.25);padding:7px 12px;font-size:13px">Eliminar simulación</button>` : ""}
+    </div>
+    <div class="franja">
+      <div><div class="v">${lista.length}</div><div class="l">Puestos simulados</div></div>
+      <div><div class="v">${cubiertos}</div><div class="l">Cubiertos</div></div>
+      <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${proc ? ` (${proc} en proceso)` : ""}</div></div>
+      <div><div class="v">${lista.filter(p => p.nivel_id === "N2").length}</div><div class="l">Direcciones (N2)</div></div>
+    </div>
+    <div class="panel" style="padding:14px 16px">
+      <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
+        <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span></div>
+        <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
+      <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>`;
+
+  enlazarTabsEstructura(m);
+  $("sVolver").onclick = cerrarSimulador;
+  $("sPdf").onclick = exportarSimPDF;
+  if ($("sTit")) $("sTit").oninput = e => { SIM.titulo = e.target.value; SIM.sucio = true; };
+  if ($("sGuardar")) $("sGuardar").onclick = () => guardarSimulacion(false);
+  if ($("sCopia")) $("sCopia").onclick = () => guardarSimulacion(true);
+  if ($("sComp")) $("sComp").onclick = modalCompartirSim;
+  if ($("sAplicar")) $("sAplicar").onclick = modalAplicarSim;
+  if ($("sNuevo")) $("sNuevo").onclick = () => modalPuesto(null, "simulador");
+  if ($("sDel")) $("sDel").onclick = () => eliminarSimulacion(SIM.id);
+  m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEd ? modalPuesto(b.dataset.pu, "simulador") : modalInfoPuesto(b.dataset.pu, [], lista));
+  enlazarZoomEstructura();
+}
+
+function modalInfoPuesto(id, aus, lista = PUESTOS) {
+  const p = lista.find(x => x.id === id); if (!p) return;
+  const tit = titularPuesto(p);
+  const jefe = lista.find(x => x.id === p.reporta_a), a = p.persona_id ? aus.find(x => x.persona_id === p.persona_id) : null;
   const proys = p.persona_id ? MIEMB.filter(x => x.persona_id === p.persona_id).map(x => ({ ...x, pr: PROY.find(z => z.id === x.proyecto_id) })).filter(x => x.pr) : [];
-  modal(`<h2>${p.persona_id ? esc(nombreDe(p.persona_id)) : "Vacante"}</h2>
+  modal(`<h2>${tit ? esc(tit) : "Vacante"}</h2>
     <p class="nota-h" style="margin:0 0 12px">${esc(p.cargo)} · ${esc((nivel(p.nivel_id) || {}).nombre || "")}</p>
-    ${!p.persona_id && p.en_proceso ? `<div class="vtag warn">En proceso de contratación</div>` : ""}
-    <table class="vmov"><tr><td style="width:120px">Reporta a</td><td>${jefe ? `${esc(jefe.cargo)}${jefe.persona_id ? " · " + esc(nombreDe(jefe.persona_id)) : " (vacante)"}` : "—"}</td></tr>
-    ${!p.persona_id && p.encargado_id ? `<tr><td>Encargado/a</td><td>${esc(nombreDe(p.encargado_id))} (doble rol mientras se cubre)</td></tr>` : ""}
+    ${!tit && p.en_proceso ? `<div class="vtag warn">En proceso de contratación</div>` : ""}
+    <table class="vmov"><tr><td style="width:120px">Reporta a</td><td>${jefe ? `${esc(jefe.cargo)}${titularPuesto(jefe) ? " · " + esc(titularPuesto(jefe)) : " (vacante)"}` : "—"}</td></tr>
+    ${!tit && p.encargado_id ? `<tr><td>Encargado/a</td><td>${esc(nombreDe(p.encargado_id))} (doble rol mientras se cubre)</td></tr>` : ""}
     ${p.persona_id && p.supervisor_interino_id ? `<tr><td>Temporalmente</td><td>Reporta a ${esc(nombreDe(p.supervisor_interino_id))}</td></tr>` : ""}
     ${a ? `<tr><td>Ausencia</td><td>${textoAus(a)}</td></tr>` : ""}
     ${p.persona_id ? `<tr><td>Proyectos</td><td>${proys.length ? proys.map(x => `<span class="pchip" style="--pc:${x.pr.color}">${esc(x.pr.nombre)}${x.rol !== "Miembro" ? " · " + esc(x.rol) : ""}</span>`).join(" ") : "—"}</td></tr>` : ""}</table>`, 480);
 }
-function modalPuesto(id) {
-  const nuevo = !id, p0 = id ? PUESTOS.find(x => x.id === id) : null;
-  const p = p0 ? { ...p0 } : { id: uuid(), cargo: "", nivel_id: "AN", reporta_a: null, persona_id: null, en_proceso: false, orden: 0 };
-  const prohibidos = nuevo ? new Set() : descPuestos(p.id);
-  const opcPuestos = PUESTOS.filter(x => x.id !== p.id && !prohibidos.has(x.id)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || a.cargo.localeCompare(b.cargo, "es"));
-  const libres = PERSONAS.filter(x => x.activo !== false && (!puestoDe(x.id) || x.id === p.persona_id)).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  const el = modal(`<h2>${nuevo ? "Agregar puesto" : esc(p.cargo)}</h2>
+
+function modalPuesto(id, modo = "actual") {
+  const esSim = modo === "simulador", esAsp = modo === "aspiracional", esActual = modo === "actual";
+  const lista = esSim ? SIM.puestos : esAsp ? PUESTOS_ASP : PUESTOS;
+  const tabla = esAsp ? "puestos_aspiracional" : "puestos";
+  const nuevo = !id, p0 = id ? lista.find(x => x.id === id) : null;
+  const p = p0 ? { ...p0 } : { id: uuid(), cargo: "", nivel_id: "AN", reporta_a: null, persona_id: null, nombre_libre: null, en_proceso: false, orden: lista.length, encargado_id: null, supervisor_interino_id: null };
+  const prohibidos = nuevo ? new Set() : descEn(lista, p.id);
+  const opcPuestos = lista.filter(x => x.id !== p.id && !prohibidos.has(x.id)).sort((a, b) => ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) || a.cargo.localeCompare(b.cargo, "es"));
+  const ocupados = new Set(lista.filter(x => x.persona_id && x.id !== p.id).map(x => x.persona_id));
+  const genteBase = DIR.length ? DIR : PERSONAS.filter(x => x.activo !== false);
+  const libres = genteBase.filter(x => !ocupados.has(x.id) || x.id === p.persona_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  const valSel = p.persona_id ? p.persona_id : (p.nombre_libre ? "__libre" : "");
+
+  const el = modal(`<h2>${nuevo ? "Agregar puesto" : esc(p.cargo)}${esSim ? ' <span class="vtag info">Simulador</span>' : esAsp ? ' <span class="vtag info">Aspiracional</span>' : ""}</h2>
     <label class="f">Cargo</label><input type="text" id="uC" value="${esc(p.cargo)}" placeholder="Ej.: Analista Exploración">
     <div class="dos" style="gap:12px"><div><label class="f">Nivel</label><select id="uN">${NIVELES.map(n => `<option value="${n.id}" ${n.id === p.nivel_id ? "selected" : ""}>${esc(n.nombre)}</option>`).join("")}</select></div>
-      <div><label class="f">Reporta a</label><select id="uR"><option value="">— Nadie (puesto superior) —</option>${opcPuestos.map(x => `<option value="${x.id}" ${x.id === p.reporta_a ? "selected" : ""}>${esc(x.cargo)}${x.persona_id ? " · " + esc(nombreDe(x.persona_id)) : " (vacante)"}</option>`).join("")}</select></div></div>
-    <label class="f">Ocupado por</label><select id="uP"><option value="">— Vacante —</option>${libres.map(x => `<option value="${x.id}" ${x.id === p.persona_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}<option value="__nueva">＋ Persona nueva…</option></select>
+      <div><label class="f">Reporta a</label><select id="uR"><option value="">— Nadie (puesto superior) —</option>${opcPuestos.map(x => `<option value="${x.id}" ${x.id === p.reporta_a ? "selected" : ""}>${esc(x.cargo)}${titularPuesto(x) ? " · " + esc(titularPuesto(x)) : " (vacante)"}</option>`).join("")}</select></div></div>
+    <label class="f">Ocupado por</label><select id="uP"><option value="">— Vacante —</option>${libres.map(x => `<option value="${x.id}" ${x.id === valSel ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}${!esActual ? `<option value="__libre" ${valSel === "__libre" ? "selected" : ""}>✎ Nombre libre / proyección…</option>` : ""}${esActual && soyAdmin() ? `<option value="__nueva">＋ Persona nueva en el portal…</option>` : ""}</select>
+    <div id="uLibreW" style="display:none"><label class="f">Nombre libre (no crea usuario en el portal)</label><input type="text" id="uNL" value="${esc(p.nombre_libre || "")}" placeholder="Ej.: Candidato externo o nombre tentativo"></div>
     <div id="uNueva" style="display:none" class="dos"><div><label class="f">Nombre completo</label><input type="text" id="uNN"></div><div><label class="f">Fecha de ingreso</label><input type="date" id="uNI"></div></div>
-    <div id="uVacW"><label class="f">Encargado/a interino/a <span style="color:var(--ink-3)">doble rol mientras se cubre la vacante</span></label><select id="uE"><option value="">— Nadie —</option>${PERSONAS.filter(x => x.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.encargado_id ? "selected" : ""}>${esc(x.nombre)}${puestoDe(x.id) ? " · " + esc(puestoDe(x.id).cargo) : ""}</option>`).join("")}</select>
-      <p style="font-size:12.5px;color:var(--ink-3);margin:6px 0 0">Los puestos que dependen de esta vacante pasan a reportarle a esa persona, que gestiona sus vacaciones.</p>
-      <label class="fila" style="gap:8px;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="uProc" ${p.en_proceso ? "checked" : ""}> Vacante en proceso de contratación</label></div>
-    <div id="uOcW"><label class="f">Reporta temporalmente a <span style="color:var(--ink-3)">opcional, sin mover el puesto</span></label><select id="uT"><option value="">— Según la estructura —</option>${PERSONAS.filter(x => x.activo !== false && x.id !== p.persona_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.supervisor_interino_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></div>
+    <div id="uVacW"><label class="f">Encargado/a interino/a <span style="color:var(--ink-3)">doble rol mientras se cubre la vacante</span></label><select id="uE"><option value="">— Nadie —</option>${genteBase.sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.encargado_id ? "selected" : ""}>${esc(x.nombre)}${x.cargo ? " · " + esc(x.cargo) : ""}</option>`).join("")}</select>
+      <label class="fila" style="gap:8px;margin-top:12px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="uProc" ${p.en_proceso ? "checked" : ""}> Vacante en proceso / proyección</label></div>
+    <div id="uOcW"><label class="f">Reporta temporalmente a <span style="color:var(--ink-3)">opcional, sin mover el puesto</span></label><select id="uT"><option value="">— Según la estructura —</option>${genteBase.filter(x => x.id !== p.persona_id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es")).map(x => `<option value="${x.id}" ${x.id === p.supervisor_interino_id ? "selected" : ""}>${esc(x.nombre)}</option>`).join("")}</select></div>
     <div class="err" id="uErr"></div>
     <div class="fila" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
-      <span class="fila">${nuevo ? "" : `<button class="btn peligro" id="uDel">Eliminar puesto</button>${p.persona_id ? `<button class="btn peligro" id="uSacar" style="margin-left:14px">Sacar del equipo</button>` : ""}`}</span>
+      <span class="fila">${nuevo ? "" : `<button class="btn peligro" id="uDel">Eliminar puesto</button>${esActual && soyAdmin() && p.persona_id ? `<button class="btn peligro" id="uSacar" style="margin-left:14px">Sacar del equipo</button>` : ""}`}</span>
       <span class="fila">${nuevo ? "" : `<button class="btn sec" id="uHijo">+ Puesto que le reporte</button>`}<button class="btn sec" id="uNo">Cancelar</button><button class="btn" id="uOk">Guardar</button></span></div>`, 600);
+
   const g = s => el.querySelector(s), err = t => g("#uErr").textContent = t;
-  const refrescar = () => { const v = g("#uP").value; g("#uNueva").style.display = v === "__nueva" ? "grid" : "none"; g("#uVacW").style.display = v ? "none" : ""; g("#uOcW").style.display = v ? "" : "none"; };
+  const refrescar = () => {
+    const v = g("#uP").value;
+    g("#uNueva").style.display = v === "__nueva" ? "grid" : "none";
+    g("#uLibreW").style.display = v === "__libre" ? "" : "none";
+    g("#uVacW").style.display = v ? "none" : "";
+    g("#uOcW").style.display = v && v !== "__libre" ? "" : "none";
+  };
   g("#uP").onchange = refrescar; refrescar();
   g("#uNo").onclick = cerrarModal;
-  if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
+  if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null, modo); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
   if (!nuevo) g("#uDel").onclick = async () => {
-    const hijos = PUESTOS.filter(x => x.reporta_a === p.id).length;
-    if (!confirm(`¿Eliminar el puesto “${p.cargo}”?${hijos ? ` Sus ${hijos} puesto(s) a cargo pasarán a reportar al puesto superior.` : ""}${p.persona_id ? " La persona sigue en el portal, sin puesto." : ""}`)) return;
-    try { if (hijos) await ok(sb.from("puestos").update({ reporta_a: p.reporta_a }).eq("reporta_a", p.id)); await ok(sb.from("puestos").delete().eq("id", p.id)); cerrarModal(); recargar("Puesto eliminado"); } catch (e) { err("No se eliminó: " + mensajeError(e)); }
+    const hijos = lista.filter(x => x.reporta_a === p.id).length;
+    if (!confirm(`¿Eliminar el puesto “${p.cargo}”?${hijos ? ` Sus ${hijos} puesto(s) a cargo pasarán a reportar al puesto superior.` : ""}`)) return;
+    if (esSim) {
+      SIM.puestos.forEach(x => { if (x.reporta_a === p.id) x.reporta_a = p.reporta_a; });
+      SIM.puestos = SIM.puestos.filter(x => x.id !== p.id); SIM.sucio = true;
+      cerrarModal(); vistaEstructura($("main")); return;
+    }
+    try {
+      if (hijos) await ok(sb.from(tabla).update({ reporta_a: p.reporta_a }).eq("reporta_a", p.id));
+      await ok(sb.from(tabla).delete().eq("id", p.id));
+      cerrarModal(); recargar("Puesto eliminado");
+    } catch (e) { err("No se eliminó: " + mensajeError(e)); }
   };
   if (!nuevo && g("#uSacar")) g("#uSacar").onclick = async () => {
     const n = nombreDe(p.persona_id);
@@ -665,21 +1071,40 @@ function modalPuesto(id) {
   };
   g("#uOk").onclick = async () => {
     const cargo = texto(g("#uC").value); if (!cargo) return err("Escribe el cargo.");
-    let persona = g("#uP").value || null;
+    let sel = g("#uP").value || null, persona = null, nombreLibre = null;
+    if (sel === "__libre") {
+      nombreLibre = texto(g("#uNL").value); if (!nombreLibre) return err("Escribe el nombre libre.");
+    } else if (sel === "__nueva") {
+      const nom = texto(g("#uNN").value).replace(/\s+/g, " "); if (!nom) return err("Escribe el nombre de la persona nueva.");
+      if (PERSONAS.some(x => mismaPersona(x.nombre, nom))) return err("Esa persona ya está en el portal: elígela de la lista.");
+      persona = uuid();
+      try { await ok(sb.from("personas").insert({ id: persona, nombre: nom, ingreso: g("#uNI").value || null, corte: dHoy() })); } catch (e) { return err("No se creó la persona: " + mensajeError(e)); }
+    } else {
+      persona = sel;
+    }
+    const ocupado = !!(persona || nombreLibre);
+    const fila = {
+      cargo, nivel_id: g("#uN").value, reporta_a: g("#uR").value || null,
+      persona_id: persona, en_proceso: !ocupado && g("#uProc").checked,
+      encargado_id: ocupado ? null : (g("#uE").value || null),
+      supervisor_interino_id: persona ? (g("#uT").value && g("#uT").value !== persona ? g("#uT").value : null) : null
+    };
+    if (!esActual) fila.nombre_libre = nombreLibre;
+
+    if (esSim) {
+      if (nuevo) SIM.puestos.push({ id: p.id, orden: SIM.puestos.length, ...fila });
+      else { const idx = SIM.puestos.findIndex(x => x.id === p.id); if (idx >= 0) SIM.puestos[idx] = { ...SIM.puestos[idx], ...fila }; }
+      SIM.sucio = true; cerrarModal(); vistaEstructura($("main")); return;
+    }
     try {
-      if (persona === "__nueva") {
-        const nom = texto(g("#uNN").value).replace(/\s+/g, " "); if (!nom) return err("Escribe el nombre de la persona nueva.");
-        if (PERSONAS.some(x => mismaPersona(x.nombre, nom))) return err("Esa persona ya está en el portal: elígela de la lista.");
-        persona = uuid(); await ok(sb.from("personas").insert({ id: persona, nombre: nom, ingreso: g("#uNI").value || null, corte: dHoy() }));
-      }
-      const fila = { cargo, nivel_id: g("#uN").value, reporta_a: g("#uR").value || null, persona_id: persona, en_proceso: !persona && g("#uProc").checked,
-        encargado_id: persona ? null : (g("#uE").value || null), supervisor_interino_id: persona ? (g("#uT").value && g("#uT").value !== persona ? g("#uT").value : null) : null };
-      if (nuevo) await ok(sb.from("puestos").insert({ id: p.id, ...fila })); else await ok(sb.from("puestos").update(fila).eq("id", p.id));
+      if (nuevo) await ok(sb.from(tabla).insert({ id: p.id, orden: lista.length, ...fila }));
+      else await ok(sb.from(tabla).update(fila).eq("id", p.id));
       cerrarModal(); recargar(nuevo ? "Puesto agregado" : "Puesto guardado");
     } catch (e) { err("No se guardó: " + mensajeError(e)); }
   };
   if (nuevo) setTimeout(() => g("#uC").focus(), 0);
 }
+
 function modalNiveles() {
   const el = modal(`<h2>Niveles y permisos</h2><p class="nota-h">Qué permite cada nivel. El nivel de cada persona sale del puesto que ocupa. Quién ve la estructura se decide persona por persona (en su ficha). Tú, como super-admin, siempre puedes todo.</p>
     <table class="vmov"><tr><th>Nivel</th><th style="text-align:center">Gestiona proyectos</th><th style="text-align:center">Acumula días oficiales</th></tr>
@@ -694,9 +1119,7 @@ function modalNiveles() {
   };
 }
 
-/* Estructura actual (presentación “Estructura Actual”, noviembre 2026) */
-const ESTRUCTURA_INICIAL = [];  // la estructura se carga una sola vez con el archivo de carga inicial
-/* Frentes (presentación “Reorganización DIENN por Hunting Zones”, láminas 5 y 6) */
+const ESTRUCTURA_INICIAL = [];
 const PROYECTOS_INICIALES = [];
 async function cargarProyectosIniciales() {
   const nuevas = [], idDe = {};
@@ -716,29 +1139,6 @@ async function cargarProyectosIniciales() {
   if (miembros.length) await ok(sb.from("proyecto_miembros").insert(miembros));
   return { proyectos: proys.length, nuevas: nuevas.map(p => p.nombre) };
 }
-async function cargarSemilla(errEl) {
-  errEl.textContent = "Cargando…";
-  try {
-    const ids = {}, nuevas = [], usadas = new Set();
-    ESTRUCTURA_INICIAL.forEach(([k]) => ids[k] = uuid());
-    const persona = {};
-    for (const [k, , , , nom] of ESTRUCTURA_INICIAL) {
-      if (!nom) continue;
-      const ex = PERSONAS.find(p => !usadas.has(p.id) && mismaPersona(p.nombre, nom));
-      if (ex) { persona[k] = ex.id; usadas.add(ex.id); }
-      else { const id = uuid(); persona[k] = id; nuevas.push({ id, nombre: nom, corte: dHoy() }); }
-    }
-    if (nuevas.length) await ok(sb.from("personas").insert(nuevas));
-    const filas = ESTRUCTURA_INICIAL.map(([k, cargo, nv, rep], i) => ({ id: ids[k], cargo, nivel_id: nv, reporta_a: rep ? ids[rep] : null, persona_id: persona[k] || null, orden: i }));
-    const kat = persona["kr"];
-    filas.find(f => f.id === ids["gc"]).encargado_id = kat || null;
-    await ok(sb.from("puestos").insert(filas));
-    for (const k of ["dir", "kr"]) if (persona[k]) await ok(sb.from("personas").update({ ve_estructura: true }).eq("id", persona[k]));
-    let extra = "";
-    if (PROYECTOS_INICIALES.length && !PROY.length) { await recargar(); const r = await cargarProyectosIniciales(); extra = ` y ${r.proyectos} frentes`; }
-    recargar(`Estructura${extra} cargados${nuevas.length ? ` (${nuevas.length} personas nuevas)` : ""}`);
-  } catch (e) { errEl.textContent = "No se completó: " + mensajeError(e); }
-}
 
 /* ---------- Proyectos ---------- */
 async function vistaProyectos(m) {
@@ -754,8 +1154,7 @@ async function vistaProyectos(m) {
         <div class="pc-n">${ms.length} ${ms.length === 1 ? "persona" : "personas"}</div>
         <ul class="pc-m">${ms.map(x => { const d = dirDe(x.persona_id) || {}, a = ausDe(x.persona_id); return `<li><span class="av s">${esc(iniciales(d.nombre || "?"))}</span><span><b>${esc(d.nombre || "—")}</b><small>${esc(cargoDe(d))}</small>${a ? `<small class="aus">${textoAus(a)}</small>` : ""}</span>${x.rol !== "Miembro" ? `<span class="vtag info">${esc(x.rol)}</span>` : ""}</li>`; }).join("") || `<li class="vacio" style="font-size:13px">Sin personas asignadas</li>`}</ul></div>`; }).join("")}
         ${editor ? `<button class="pcard padd" id="pNuevo2"><span>+</span>Nuevo proyecto</button>` : ""}</div>
-        ${!PROY.length && !editor ? `<div class="panel vacio">Aún no hay proyectos.</div>` : ""}
-        ${!PROY.length && soyAdmin() && PROYECTOS_INICIALES.length ? `<div class="panel" style="max-width:720px;margin-top:14px"><h2>Cargar los frentes de la reorganización</h2><p class="nota-h">Crea las 5 Hunting Zones y las 4 áreas de apoyo con sus líderes y equipos.</p><button class="btn" id="pSemilla">Cargar frentes</button><div class="err" id="pErr"></div></div>` : ""}`
+        ${!PROY.length && !editor ? `<div class="panel vacio">Aún no hay proyectos.</div>` : ""}`
     : `<div class="panel" style="padding:8px 14px"><table class="vadm"><tr><th>Persona</th><th>Cargo</th><th>Proyectos</th></tr>
         ${gente.map(d => { const ps = MIEMB.filter(x => x.persona_id === d.id).map(x => ({ ...x, pr: PROY.find(z => z.id === x.proyecto_id) })).filter(x => x.pr);
           return `<tr class="${editor ? "clic" : ""}" ${editor ? `data-pper="${d.id}"` : ""}><td><b style="font-weight:500">${esc(d.nombre)}</b></td><td style="color:var(--ink-2)">${esc(cargoDe(d) || "—")}</td><td>${ps.map(x => `<span class="pchip" style="--pc:${esc(x.pr.color)}">${esc(x.pr.nombre)}${x.rol !== "Miembro" ? " · " + esc(x.rol) : ""}</span>`).join(" ") || `<span class="vtag warn">Sin proyecto</span>`}</td></tr>`; }).join("")}</table></div>
@@ -763,7 +1162,6 @@ async function vistaProyectos(m) {
   $("pModo").onclick = e => { const b = e.target.closest("[data-m]"); if (b) { EQ.modo = b.dataset.m; vistaProyectos(m); } };
   if (editor) { $("pNuevo").onclick = () => modalProyecto(null); if ($("pNuevo2")) $("pNuevo2").onclick = () => modalProyecto(null); }
   m.querySelectorAll("[data-ped]").forEach(b => b.onclick = () => modalProyecto(b.dataset.ped));
-  if ($("pSemilla")) $("pSemilla").onclick = async () => { $("pErr").textContent = "Cargando…"; try { const r = await cargarProyectosIniciales(); recargar(`${r.proyectos} frentes cargados${r.nuevas.length ? " · nuevas: " + r.nuevas.join(", ") : ""}`); } catch (e) { $("pErr").textContent = "No se completó: " + mensajeError(e); } };
   m.querySelectorAll("[data-pper]").forEach(t => t.onclick = () => modalAsignar(t.dataset.pper));
 }
 function modalProyecto(id) {
@@ -821,7 +1219,6 @@ function modalAsignar(pid) {
     } catch (e) { el.querySelector("#aErr").textContent = "No se guardó: " + mensajeError(e); }
   };
 }
-
 
 /* ---------- Datos ---------- */
 let sb = null, usuario = null, YO = null, PERSONAS = [], EQ_CAL = [], GEST = new Set();
@@ -886,7 +1283,7 @@ function pantallaClave(forzada) {
     else { $("fClave").reset(); e.style.color = "var(--ok)"; e.textContent = "Clave actualizada."; }
   };
 }
-async function salir() { cerrarModal(); await sb.auth.signOut(); usuario = null; YO = null; PERSONAS = []; S.vista = "mias"; EQ.zoom = null; EQ.fecha = null; EQ.modo = "proyecto"; VV.mes = null; pantallaLogin(); }
+async function salir() { cerrarModal(); SIM.activo = false; SIM.puestos = []; await sb.auth.signOut(); usuario = null; YO = null; PERSONAS = []; S.vista = "mias"; EQ.zoom = null; EQ.fecha = null; EQ.modo = "proyecto"; EQ.tab = "actual"; VV.mes = null; pantallaLogin(); }
 async function entrar() {
   try { await cargar(); } catch (e) { return pantallaLogin("Entraste, pero no pude leer los datos: " + mensajeError(e)); }
   if (!YO) { $("app").innerHTML = `<div class="centro"><h1 style="font-size:21px">Aún no estás en el organigrama</h1><p class="sub">Tu usuario existe, pero no está asociado a ninguna persona del portal. Pídele al administrador que revise tu correo (${esc(usuario.email)}).</p><button class="btn sec" id="bS">Salir</button></div>`; $("bS").onclick = salir; return; }
@@ -895,15 +1292,13 @@ async function entrar() {
 }
 async function iniciar() {
   if (!window.XLSX || !window.supabase) { $("app").innerHTML = `<div class="centro err">No cargaron las librerías. Revisa tu conexión a internet y recarga la página.</div>`; return; }
-  if (/^__/.test(CONFIG.SUPABASE_URL)) { $("app").innerHTML = `<div class="centro"><h1 style="font-size:20px">Falta conectar el portal</h1><p class="sub">Escribe la Project URL y la llave publishable del proyecto del portal al inicio de este archivo (CONFIG).</p></div>`; return; }
   sb = window.supabase.createClient(CONFIG.SUPABASE_URL.replace(/\/+$/, ""), CONFIG.SUPABASE_KEY);
   const { data } = await sb.auth.getSession();
   if (data && data.session) { usuario = data.session.user; entrar(); } else pantallaLogin();
 }
 
-/* ---------- Estructura ---------- */
+/* ---------- Navegación ---------- */
 function armar() {
-  const equipo = GEST.size > 0;
   $("app").innerHTML = `<div class="shell"><aside>
       <div class="marca">${esc(CONFIG.NOMBRE)}</div><div class="ciclo">Hola, ${esc(primerNombre(YO.nombre))}</div>
       <div class="grupo">Vacaciones</div>
@@ -946,7 +1341,6 @@ function tablaMovimientos(p, c, hoy) {
 }
 const resumenCifras = c => c.sinAcum ? `<div class="vresumen" style="grid-template-columns:repeat(3,1fr)"><div><b>${c.tomadosAnio.toLocaleString("es-VE")}</b><span>tomados en ${dHoy().slice(0, 4)}</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b style="font-size:15px;padding-top:6px">Sin días oficiales</b><span>se otorgan por acuerdo</span></div></div>` : `<div class="vresumen"><div><b class="${c.saldo < 0 ? "neg" : ""}">${c.saldo.toLocaleString("es-VE")}</b><span>disponibles hoy</span></div><div><b>${c.plan.toLocaleString("es-VE")}</b><span>planificados</span></div><div><b class="${c.despues < 0 ? "neg" : ""}">${c.despues.toLocaleString("es-VE")}</b><span>quedan después</span></div><div><b>${c.prox ? "+" + c.prox.dias : "—"}</b><span>${c.prox ? "el " + dTxt(c.prox.fecha) : "próximo aniversario"}</span></div></div>`;
 
-/* ---------- Mis vacaciones ---------- */
 function vistaMias(m) {
   const hoy = dHoy(), c = cuentaVac(YO, hoy);
   m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
@@ -965,7 +1359,6 @@ function vistaMias(m) {
   pintarCal($("vCal"));
 }
 
-/* ---------- Equipo (supervisor / admin) ---------- */
 const EQV = { filtro: null };
 function vistaEquipo(m) {
   const hoy = dHoy();
@@ -995,7 +1388,6 @@ function vistaEquipo(m) {
   pintarCal($("vCal"));
 }
 
-/* ---------- Calendario del equipo (solo nombres y fechas) ---------- */
 async function pintarCal(el) {
   const hoy = dHoy(); VV.mes ||= hoy.slice(0, 7);
   const [y, mo] = VV.mes.split("-").map(Number), ult = new Date(Date.UTC(y, mo, 0)).getUTCDate();
@@ -1028,11 +1420,9 @@ async function pintarCal(el) {
   el.querySelectorAll("[data-vpc]").forEach(a => a.onclick = e => { e.preventDefault(); modalPersona(a.dataset.vpc); });
 }
 
-/* ---------- Registrar / editar ---------- */
 function modalRegistro({ id, pid }) {
   const hoy = dHoy(), existente = id ? VAC.registros.find(r => r.id === id) : null;
   const r = existente ? { ...existente } : { id: null, pid: pid || "", tipo: "vac", desde: "", hasta: "", dias: "", comentario: "" };
-  const propio = YO && r.pid === YO.id;
   const editable = !existente || puedoEditar(r.pid);
   const opciones = [...(YO ? [YO] : []), ...PERSONAS.filter(p => GEST.has(p.id) && (p.activo !== false || p.id === r.pid))];
   const unaSola = opciones.length === 1;
@@ -1108,7 +1498,6 @@ function modalRegistro({ id, pid }) {
   campos(); if (!existente) tipoVisible();
 }
 
-/* ---------- Historial (trazabilidad) ---------- */
 function enlazarHistorial(raiz) {
   raiz.querySelectorAll("details[data-hist]").forEach(d => d.addEventListener("toggle", async () => {
     if (!d.open || d.dataset.ok) return; d.dataset.ok = "1";
@@ -1135,7 +1524,6 @@ function describirCambio(x) {
   return `Cambió ${describirRegistro(x.antes)} → <b>${describirRegistro(x.despues)}</b>`;
 }
 
-/* ---------- Ficha de una persona (supervisor ve; super-admin edita) ---------- */
 function opcionesSupervisor(p) { const prohibidos = p.id ? descendientes(p.id) : new Set(); return PERSONAS.filter(x => x.id !== p.id && !prohibidos.has(x.id) && x.activo !== false); }
 const claveTemporal = () => { const L = "ABCDEFGHJKLMNPQRSTUVWXYZ", l = "abcdefghijkmnpqrstuvwxyz", d = "23456789", b = crypto.getRandomValues(new Uint32Array(8)), t = i => b[i]; return `${L[t(0) % L.length]}${l[t(1) % l.length]}${l[t(2) % l.length]}${l[t(3) % l.length]}-${d[t(4) % d.length]}${d[t(5) % d.length]}${d[t(6) % d.length]}${d[t(7) % d.length]}`; };
 function estadoAcceso(p) { return !p.correo ? ["", "Sin correo"] : !p.user_id ? ["warn", "Sin acceso"] : p.cambiar_clave ? ["info", "Clave temporal"] : ["ok", "Activo"]; }
@@ -1163,11 +1551,10 @@ function modalPersona(id) {
         <div><label class="f">Saldo inicial al día</label><input type="date" id="pC" value="${p.corte || hoy}"></div></div>
       <label class="f">Nota <span style="color:var(--ink-3)">la persona también puede verla</span></label><input type="text" id="pNo" value="${esc(p.nota || "")}">
       <label class="fila" style="gap:8px;margin-top:14px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pA" ${p.activo !== false ? "checked" : ""}> Activa (desmárcala si ya no está: no podrá entrar y se oculta, pero no se borra)</label>
-      <label class="fila" style="gap:8px;margin-top:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pVe" ${p.ve_estructura || p.admin ? "checked" : ""} ${p.admin ? "disabled" : ""}> Puede ver la Estructura (organigrama con vacantes)</label>
+      <label class="fila" style="gap:8px;margin-top:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pVe" ${p.ve_estructura || p.admin ? "checked" : ""} ${p.admin ? "disabled" : ""}> Puede ver y editar la Estructura (Actual, Aspiracional y Simulador)</label>
       <label class="fila" style="gap:8px;margin-top:8px;font-size:13px;cursor:pointer"><input type="checkbox" class="chk" id="pAd" ${p.admin ? "checked" : ""} ${YO && p.id === YO.id ? "disabled" : ""}> Super-admin (ve a todos y administra personas y accesos)</label>
       <div class="err" id="pErr"></div>
       <div class="fila" style="justify-content:space-between;margin-top:12px">${nueva || (YO && p.id === YO.id) ? "<span></span>" : `<button class="btn peligro" id="pDel">Eliminar persona</button>`}<span class="fila"><button class="btn sec" id="pNo2">Cancelar</button><button class="btn" id="pOk">Guardar</button></span></div>
-
     </details>
       ${nueva ? "" : `<div class="vacceso"><div><b>Acceso al portal</b> <span class="vtag ${accCls}">${accTxt}</span><div style="font-size:12.5px;color:var(--ink-3);margin-top:3px">${!p.correo ? "Escribe su correo y guarda para poder crearle el acceso." : !p.user_id ? "Se crea con una clave temporal que la persona cambia al entrar." : "Si olvidó su clave, asígnale una temporal nueva."}</div></div>
         ${p.correo && !(YO && p.id === YO.id) ? `<button class="btn sec" id="pAcc">${p.user_id ? "Restablecer clave" : "Crear acceso"}</button>` : ""}</div><div id="pCred"></div>`}` : ""}`, 640);
@@ -1221,7 +1608,6 @@ function modalPersona(id) {
   if (nueva) setTimeout(() => el.querySelector("#pN").focus(), 0);
 }
 
-/* ---------- Administración ---------- */
 function vistaAdmin(m) {
   const lista = [...PERSONAS].sort((a, b) => (b.activo !== false) - (a.activo !== false) || a.nombre.localeCompare(b.nombre, "es"));
   const sinAcceso = PERSONAS.filter(p => p.activo !== false && !p.user_id).length;
@@ -1241,20 +1627,7 @@ function vistaAdmin(m) {
   $("aReg").onclick = modalReglas;
   m.querySelectorAll("[data-vp]").forEach(t => t.onclick = () => modalPersona(t.dataset.vp));
 }
-function vistaOrg(m) {
-  const activos = PERSONAS.filter(p => p.activo !== false), ids = new Set(activos.map(p => p.id));
-  const hijos = id => activos.filter(p => p.supervisor_id === id).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-  const raices = activos.filter(p => !p.supervisor_id || !ids.has(p.supervisor_id)).sort((a, b) => hijos(b.id).length - hijos(a.id).length || a.nombre.localeCompare(b.nombre, "es"));
-  const nodo = (p, vistos) => { if (vistos.has(p.id)) return ""; vistos.add(p.id); const h = hijos(p.id);
-    return `<li><button class="onodo" data-vp="${p.id}"><span class="av s">${esc(iniciales(p.nombre))}</span><span><b>${esc(p.nombre)}</b><small>${h.length ? `${h.length} a cargo` : ""}${p.user_id ? "" : `${h.length ? " · " : ""}sin acceso`}</small></span></button>${h.length ? `<ul>${h.map(x => nodo(x, vistos)).join("")}</ul>` : ""}</li>`; };
-  const vistos = new Set();
-  m.innerHTML = `<h1>Organigrama</h1><p class="sub">Quién reporta a quién. Cada supervisor ve y gestiona las vacaciones de todas las personas que cuelgan de él. Para mover a alguien, ábrelo y cambia “Reporta a”.</p>
-    <div class="panel"><ul class="org">${raices.map(p => nodo(p, vistos)).join("")}</ul></div>`;
-  m.querySelectorAll("[data-vp]").forEach(b => b.onclick = () => modalPersona(b.dataset.vp));
-}
 
-/* ---------- Accesos en lote ---------- */
-// Mientras hay claves en pantalla, no se cierra por accidente (clic afuera o Esc)
 function protegerCierre(el, alCerrar) {
   document.removeEventListener("keydown", escModal);
   el.parentElement.onclick = e => { if (e.target.classList.contains("x") && confirm("¿Ya copiaste las claves? No se vuelven a mostrar.")) { cerrarModal(); if (alCerrar) alCerrar(); } };
@@ -1303,7 +1676,6 @@ function modalLote() {
   };
 }
 
-/* ---------- Reglas y feriados (super-admin) ---------- */
 function modalReglas() {
   const y = +dHoy().slice(0, 4); VV.ferY ||= y;
   const guardarReglas = async extra => { await ok(sb.from("reglas").update({ base: VAC.reglas.base, inc: VAC.reglas.inc, tope: VAC.reglas.tope, feriados_extra: extra }).eq("id", 1)); VAC.feriadosExtra = extra; };
@@ -1340,7 +1712,6 @@ function modalReglas() {
   dibujar();
 }
 
-/* ---------- Importar el Excel semanal (super-admin) ---------- */
 async function leerArchivoVac(file, errEl) {
   errEl.textContent = "Leyendo…";
   try {
@@ -1388,7 +1759,6 @@ function modalImportar(res) {
   };
 }
 
-/* ---------- Descargar en Excel (lo que tú puedes ver) ---------- */
 async function exportarVac() {
   const hoy = dHoy(), gente = PERSONAS.filter(p => p.activo !== false).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   const cuentas = new Map(gente.map(p => [p.id, cuentaVac(p, hoy)]));
@@ -1447,7 +1817,6 @@ async function exportarVac() {
 }
 
 iniciar();
-
 </script>
 </body>
 </html>
