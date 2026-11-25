@@ -511,7 +511,7 @@ function leerVacExcel(R, hoy) {
    ===================================================================== */
 let DIR = [], NIVELES = [], PUESTOS = [], PUESTOS_ASP = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
 let ASP_TABLA_OK = true, SIM_TABLA_OK = true, DC_TABLA_OK = true, SIM_LISTA = [], SIM_ACC = [], USUARIOS_EST = [], MANUALES = [], DC_LISTA = [];
-const EQ = { fecha: null, zoom: null, modo: "proyecto", tab: "actual" };
+const EQ = { fecha: null, zoom: null, modo: "proyecto", tab: "actual", chatOpen: false, chatMsgs: { actual: [], aspiracional: [] } };
 const SIM = { activo: false, id: null, propietario_id: null, permiso: "dueno", origen: null, titulo: "", puestos: [], sucio: false, chatOpen: false, chatMsgs: [] };
 const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
 const COLORES_PROY = ["#e3a21a", "#2a55d0", "#6b7280", "#d0662a", "#2e9e6e", "#5b8fd6", "#1f9aa8", "#2b5ea7", "#4a5672", "#c2413a", "#7b4bc2"];
@@ -679,7 +679,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Matriz Actual ↔ Aspiracional</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${lista.length ? `<button class="btn sec" id="eChatBtn" style="${EQ.chatOpen ? "background:var(--accent);color:#fff;border-color:var(--accent)" : "color:var(--accent);border-color:var(--accent)"}">✨ Chat estratégico</button>` : ""}${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Matriz Actual ↔ Aspiracional</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -690,11 +690,33 @@ async function vistaEstructura(m) {
         <div><div class="v">${cubiertos}</div><div class="l">Cubiertos</div></div>
         <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).length ? ` (${[proc ? `${proc} en proceso` : "", interinos ? `${interinos} con encargado` : ""].filter(Boolean).join(", ")})` : ""}</div></div>
         <div><div class="v">${esAsp ? lista.filter(p => p.nivel_id === "N2").length : fuera}</div><div class="l">${esAsp ? "Direcciones proyectadas (N2)" : `De vacaciones ${EQ.fecha === hoy ? "hoy" : "el " + dTxt(EQ.fecha, false)}`}</div></div></div>
-      <div class="panel" style="padding:14px 16px">
-        <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
-          <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span><span><i class="sw" style="background:#e6ecfb"></i>Con encargado/a</span></div>
-          <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
-        <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
+      <div class="${EQ.chatOpen ? "sim-layout" : ""}">
+        <div class="panel" style="padding:14px 16px;${EQ.chatOpen ? "margin-bottom:0" : ""}">
+          <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
+            <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span><span><i class="sw" style="background:#e6ecfb"></i>Con encargado/a</span></div>
+            <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
+          <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
+        ${EQ.chatOpen ? `<div class="sim-chat-panel no-print">
+          <div class="fila" style="justify-content:space-between;align-items:center;gap:6px">
+            <div><h3>✨ Chat estratégico</h3><span style="font-size:11.5px;color:var(--ink-3)">Evaluando ${esAsp ? "Estructura Aspiracional" : "Estructura Actual"}</span></div>
+            <div class="fila" style="gap:6px">
+              <button class="btn sec" id="eChatASim" style="padding:4px 9px;font-size:11.5px;color:var(--accent);border-color:var(--accent)" title="Crea una simulación privada con esta estructura y se lleva esta conversación">→ Llevar a simulación</button>
+              <button class="btn sec" id="sChatCerrar" style="padding:4px 9px;font-size:12px">Cerrar</button>
+            </div>
+          </div>
+          <div class="sim-chat-log" id="sChatLog"></div>
+          <div class="sim-chips" id="sChatChips">
+            <button type="button" class="sim-chip" data-sq="Evalúa la congruencia de esta estructura: tramos de control, niveles, vacantes y posibles sobrecargas.">Congruencia</button>
+            <button type="button" class="sim-chip" data-sq="Compara la Estructura Actual vs. la Aspiracional: qué brechas, saltos de nivel o duplicidades detectas.">Actual vs. Aspiracional</button>
+            <button type="button" class="sim-chip" data-sq="¿Qué ajustes o posiciones adicionales recomendarías evaluar? Pregúntame antes de proponer cambios para llevarlos a una simulación.">Sugerir cambios</button>
+          </div>
+          <div class="fila" style="flex-wrap:nowrap;gap:6px">
+            <input type="text" id="sChatIn" placeholder="Evalúa congruencia o plantea ideas…" style="padding:8px 10px;font-size:13px">
+            <button class="btn" id="sChatSend" style="padding:8px 13px;font-size:13px;white-space:nowrap">Enviar</button>
+          </div>
+          <div class="err" id="sChatErr" style="margin-top:4px;min-height:14px;font-size:12px"></div>
+        </div>` : ""}
+      </div>
       ${sinPuesto.length ? `<div class="panel"><h2>Personas sin puesto</h2><p class="nota-h">Están en el portal pero no ocupan ningún puesto del organigrama actual. Abre un puesto (o crea uno) y asígnalas.</p><div class="vprox-l" style="flex-wrap:wrap">${sinPuesto.map(p => `<span class="vchip" style="cursor:default"><b>${esc(p.nombre)}</b></span>`).join("")}</div></div>` : ""}`}`;
 
   enlazarTabsEstructura(m);
@@ -702,6 +724,8 @@ async function vistaEstructura(m) {
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
   if ($("eMan")) $("eMan").onclick = modalManualesDC;
   if ($("eHomologar")) $("eHomologar").onclick = () => modalMatrizCorrespondencia();
+  if ($("eChatBtn")) $("eChatBtn").onclick = () => { EQ.chatOpen = !EQ.chatOpen; EQ.zoom = null; vistaEstructura(m); };
+  if (EQ.chatOpen && lista.length) iniciarChatEstructura(esAsp ? "aspiracional" : "actual", true);
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
   if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
   m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
@@ -1038,7 +1062,7 @@ function vistaSimulador(m, pestanasHTML) {
   $("sVolver").onclick = cerrarSimulador;
   $("sPdf").onclick = exportarSimPDF;
   $("sChatBtn").onclick = () => { SIM.chatOpen = !SIM.chatOpen; EQ.zoom = null; vistaEstructura(m); };
-  if (SIM.chatOpen) iniciarChatSimulador(puedeEd);
+  if (SIM.chatOpen) iniciarChatEstructura("simulador", puedeEd);
   if ($("sTit")) $("sTit").oninput = e => { SIM.titulo = e.target.value; SIM.sucio = true; };
   if ($("sGuardar")) $("sGuardar").onclick = () => guardarSimulacion(false);
   if ($("sCopia")) $("sCopia").onclick = () => guardarSimulacion(true);
@@ -1511,11 +1535,43 @@ function modalMatrizCorrespondencia(filtro = "todas") {
   });
 }
 
-/* ---------- Chat estratégico en vivo dentro del Simulador ---------- */
-function iniciarChatSimulador(puedeEd) {
+/* ---------- Chat estratégico en vivo (Actual, Aspiracional y Simulador) ---------- */
+function llevarConversacionASimulacion(origen, propExtra = null) {
+  const fuente = origen === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+  const msgsCopia = (EQ.chatMsgs[origen] || []).map(x => ({ ...x }));
+  SIM.activo = true; SIM.id = null; SIM.propietario_id = YO ? YO.id : null; SIM.permiso = "dueno";
+  SIM.origen = origen; SIM.sucio = true;
+  SIM.titulo = `Simulación desde ${origen === "aspiracional" ? "Aspiracional" : "Actual"}`;
+  SIM.puestos = fuente.map(p => ({ ...p }));
+  SIM.chatOpen = true;
+  SIM.chatMsgs = msgsCopia;
+  if (propExtra && propExtra.cargo) {
+    const jefe = propExtra.reporta_a_cargo ? SIM.puestos.find(x => limpiar(x.cargo).includes(limpiar(propExtra.reporta_a_cargo)) || limpiar(propExtra.reporta_a_cargo).includes(limpiar(x.cargo))) : null;
+    SIM.puestos.push({
+      id: uuid(), cargo: texto(propExtra.cargo), nivel_id: NIVELES.some(n => n.id === propExtra.nivel_id) ? propExtra.nivel_id : "B4",
+      reporta_a: jefe ? jefe.id : null, persona_id: null, nombre_libre: texto(propExtra.nombre_libre) || null,
+      en_proceso: propExtra.en_proceso !== false, orden: SIM.puestos.length, encargado_id: null, supervisor_interino_id: null
+    });
+  }
+  EQ.tab = "simulador";
+  EQ.zoom = null;
+  vistaEstructura($("main"));
+  estado(propExtra ? `Simulación creada con “${propExtra.cargo}”` : "Conversación llevada a una nueva simulación privada");
+}
+
+function iniciarChatEstructura(modo, puedeEd) {
+  const esSim = modo === "simulador";
   const log = $("sChatLog"), inp = $("sChatIn"), err = $("sChatErr"), sendBtn = $("sChatSend");
   if (!log || !inp) return;
-  $("sChatCerrar").onclick = () => { SIM.chatOpen = false; EQ.zoom = null; vistaEstructura($("main")); };
+  const getMsgs = () => esSim ? SIM.chatMsgs : (EQ.chatMsgs[modo] ||= []);
+  const getLista = () => esSim ? SIM.puestos : (modo === "aspiracional" ? PUESTOS_ASP : PUESTOS);
+  const getTitulo = () => esSim ? SIM.titulo : (modo === "aspiracional" ? "Estructura Aspiracional" : "Estructura Actual");
+
+  $("sChatCerrar").onclick = () => {
+    if (esSim) SIM.chatOpen = false; else EQ.chatOpen = false;
+    EQ.zoom = null; vistaEstructura($("main"));
+  };
+  if ($("eChatASim")) $("eChatASim").onclick = () => llevarConversacionASimulacion(modo, null);
 
   const extraerPropuesta = txt => {
     const m = txt.match(/<<<PUESTO\s*(\{[\s\S]*?\})\s*>>>/);
@@ -1525,19 +1581,25 @@ function iniciarChatSimulador(puedeEd) {
     return { limpio: txt.replace(m[0], "").trim(), prop };
   };
   const pintarLog = () => {
-    if (!SIM.chatMsgs.length) {
-      log.innerHTML = `<div class="dc-msg m">Hola ${esc(primerNombre(YO.nombre))}. Estoy viendo tu simulación <b>${esc(SIM.titulo)}</b> (${SIM.puestos.length} puestos). Puedes preguntarme por brechas de nivel, tramos de control o plantear posiciones nuevas (siempre te preguntaré antes de agregar algo al organigrama).</div>`;
+    const msgs = getMsgs(), lista = getLista();
+    if (!msgs.length) {
+      log.innerHTML = `<div class="dc-msg m">Hola ${esc(primerNombre(YO.nombre))}. Estoy viendo <b>${esc(getTitulo())}</b> (${lista.length} puestos). ${esSim ? "Puedes preguntarme por brechas de nivel, tramos de control o plantear posiciones nuevas (siempre te preguntaré antes de agregar algo al organigrama)." : "Podemos evaluar congruencia, comparar contra la otra estructura y elucubrar ajustes. Cuando quieras probar cambios, puedes pasar esta conversación directo a una <b>Simulación privada</b> sin tocar la estructura real."}</div>`;
       return;
     }
-    log.innerHTML = SIM.chatMsgs.map((m, idx) => {
+    log.innerHTML = msgs.map((m, idx) => {
       if (m.role === "user") return `<div class="dc-msg u">${esc(m.text)}</div>`;
       const { limpio, prop } = extraerPropuesta(m.text);
-      return `<div class="dc-msg m">${esc(limpio)}${prop && puedeEd ? `<div class="sim-sug-card"><b>Propuesta de puesto:</b> ${esc(prop.cargo || "")} (${esc(prop.nivel_id || "B4")})${prop.reporta_a_cargo ? `<br><span style="color:var(--ink-2)">Reporta a: ${esc(prop.reporta_a_cargo)}</span>` : ""}<div style="margin-top:7px"><button type="button" class="btn" style="padding:5px 10px;font-size:12px;background:var(--ok)" data-saddp="${idx}">＋ Agregar este puesto al simulador</button></div></div>` : ""}</div>`;
+      const btnTxt = esSim ? "＋ Agregar este puesto al simulador" : "🚀 Crear simulación y agregar este puesto";
+      return `<div class="dc-msg m">${esc(limpio)}${prop && puedeEd ? `<div class="sim-sug-card"><b>Propuesta de puesto:</b> ${esc(prop.cargo || "")} (${esc(prop.nivel_id || "B4")})${prop.reporta_a_cargo ? `<br><span style="color:var(--ink-2)">Reporta a: ${esc(prop.reporta_a_cargo)}</span>` : ""}<div style="margin-top:7px"><button type="button" class="btn" style="padding:5px 10px;font-size:12px;background:var(--ok)" data-saddp="${idx}">${btnTxt}</button></div></div>` : ""}</div>`;
     }).join("");
     log.scrollTop = log.scrollHeight;
     log.querySelectorAll("[data-saddp]").forEach(b => b.onclick = () => {
-      const m = SIM.chatMsgs[+b.dataset.saddp]; if (!m) return;
+      const m = getMsgs()[+b.dataset.saddp]; if (!m) return;
       const { prop } = extraerPropuesta(m.text); if (!prop || !prop.cargo) return;
+      if (!esSim) {
+        llevarConversacionASimulacion(modo, prop);
+        return;
+      }
       const jefe = prop.reporta_a_cargo ? SIM.puestos.find(x => limpiar(x.cargo).includes(limpiar(prop.reporta_a_cargo)) || limpiar(prop.reporta_a_cargo).includes(limpiar(x.cargo))) : null;
       SIM.puestos.push({
         id: uuid(), cargo: texto(prop.cargo), nivel_id: NIVELES.some(n => n.id === prop.nivel_id) ? prop.nivel_id : "B4",
@@ -1549,29 +1611,30 @@ function iniciarChatSimulador(puedeEd) {
       vistaEstructura($("main"));
     });
   };
-  const armarContextoSim = () => {
+  const armarContexto = () => {
     const mapear = arr => arr.map(p => {
       const j = arr.find(x => x.id === p.reporta_a);
       return { cargo: p.cargo, nivel: (nivel(p.nivel_id) || {}).nombre || p.nivel_id || "", titular: titularPuesto(p) || "", reporta_a: j ? j.cargo : "", en_proceso: !!p.en_proceso };
     });
-    return { titulo: SIM.titulo, puestos: mapear(SIM.puestos), actual: mapear(PUESTOS), aspiracional: mapear(PUESTOS_ASP) };
+    return { titulo: getTitulo(), puestos: mapear(getLista()), actual: mapear(PUESTOS), aspiracional: mapear(PUESTOS_ASP) };
   };
   async function enviar(textoUsuario) {
     const t = texto(textoUsuario != null ? textoUsuario : inp.value);
     if (!t) return;
+    const msgs = getMsgs();
     inp.value = ""; err.textContent = "Gemini está analizando tu estructura…";
     sendBtn.setAttribute("aria-disabled", "true");
-    SIM.chatMsgs.push({ role: "user", text: t });
+    msgs.push({ role: "user", text: t });
     pintarLog();
     try {
       const { data, error } = await sb.functions.invoke("descripcion-ia", {
-        body: { accion: "simulador", simulacion: armarContextoSim(), mensajes: SIM.chatMsgs }
+        body: { accion: "simulador", simulacion: armarContexto(), mensajes: msgs }
       });
       let msg = data && data.error;
       if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
-      if (msg || !data || !data.ok) throw new Error(msg || "Actualiza la Edge Function “descripcion-ia” en Supabase para activar el chat del simulador.");
+      if (msg || !data || !data.ok) throw new Error(msg || "Actualiza la Edge Function “descripcion-ia” en Supabase para activar el chat.");
       err.textContent = "";
-      SIM.chatMsgs.push({ role: "model", text: data.respuesta });
+      msgs.push({ role: "model", text: data.respuesta });
       pintarLog();
     } catch (e) {
       err.textContent = e.message || String(e);
