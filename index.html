@@ -127,6 +127,16 @@
   .dc-msg.u{align-self:flex-end;background:var(--ink);color:#fff}
   .dc-msg.m{align-self:flex-start;background:#fff;border:1px solid var(--rule);color:var(--ink)}
   .ocb .ocdc{font-size:10px;color:var(--ok);background:#e1f2ec;border-radius:4px;padding:1px 6px;margin-top:3px;font-weight:500}
+  .ocb .ocgrp{font-size:9.5px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;margin-top:2px}
+  .sim-layout{display:grid;grid-template-columns:1fr 370px;gap:16px;align-items:start}
+  @media(max-width:1050px){.sim-layout{grid-template-columns:1fr}}
+  .sim-chat-panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px;display:flex;flex-direction:column;height:76vh;position:sticky;top:16px}
+  .sim-chat-panel h3{font-size:15px;margin:0}
+  .sim-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:10px;background:#f6f8fb;border:1px solid var(--rule);border-radius:8px;margin:10px 0}
+  .sim-sug-card{margin-top:6px;padding:9px 11px;background:#eef3fc;border:1px solid #c3d4f7;border-radius:8px;font-size:12.5px}
+  .sim-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+  .sim-chip{all:unset;cursor:pointer;font-size:11.5px;padding:4px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+  .sim-chip:hover{background:#d5e0fa}
 
   .rubro{display:grid;grid-template-columns:minmax(180px,1.3fr) 2fr 112px;gap:6px 18px;align-items:center;padding:12px 0;border-bottom:1px solid var(--rule-2)}
   .rubro:last-child{border-bottom:0}
@@ -500,7 +510,7 @@ function leerVacExcel(R, hoy) {
 let DIR = [], NIVELES = [], PUESTOS = [], PUESTOS_ASP = [], PROY = [], MIEMB = [], PERM = { estructura: false, proyectos: false };
 let ASP_TABLA_OK = true, SIM_TABLA_OK = true, DC_TABLA_OK = true, SIM_LISTA = [], SIM_ACC = [], USUARIOS_EST = [], MANUALES = [], DC_LISTA = [];
 const EQ = { fecha: null, zoom: null, modo: "proyecto", tab: "actual" };
-const SIM = { activo: false, id: null, propietario_id: null, permiso: "dueno", origen: null, titulo: "", puestos: [], sucio: false };
+const SIM = { activo: false, id: null, propietario_id: null, permiso: "dueno", origen: null, titulo: "", puestos: [], sucio: false, chatOpen: false, chatMsgs: [] };
 const COLOR_NIVEL = { N1: "#14213d", N2: "#2a55d0", B3: "#0f7b5f", B4: "#1d8a73", ESP: "#c48a12", APO: "#8790a5", AN: "#6b7fa8", PAS: "#b3b9c6" };
 const COLORES_PROY = ["#e3a21a", "#2a55d0", "#6b7280", "#d0662a", "#2e9e6e", "#5b8fd6", "#1f9aa8", "#2b5ea7", "#4a5672", "#c2413a", "#7b4bc2"];
 const ROLES = ["Líder", "Co-líder", "Gerente", "Apoyo", "Miembro", "Pasante"];
@@ -618,7 +628,7 @@ function construirArbolHTML(lista, ausDe, modoDC = null) {
       ${enc ? `<span class="ocint">Encargado/a: ${esc(nombreDe(p.encargado_id))}</span>` : ""}
       ${otros.length ? `<span class="ocint">También a cargo de ${otros.map(x => esc(x.cargo)).join(", ")}</span>` : ""}
       ${p.persona_id && p.supervisor_interino_id ? `<span class="ocint">Reporta temporalmente a ${esc(primerNombre(nombreDe(p.supervisor_interino_id)))}</span>` : ""}
-      ${!ocupado && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}${modoDC && dcDe(modoDC, p.id) ? `<span class="ocdc">📄 Descripción</span>` : ""}</button>`;
+      ${!ocupado && p.en_proceso ? `<span class="vtag warn">En proceso</span>` : ""}${a ? `<span class="ocaus">${textoAus(a)}</span>` : ""}${modoDC && dcDe(modoDC, p.id) ? `<span class="ocdc">📄 Descripción</span>` : ""}${modoDC && p.grupo_dc_id && companerosGrupo(modoDC, p).length ? `<span class="ocgrp">🔗 Match (${companerosGrupo(modoDC, p).length + 1})</span>` : ""}</button>`;
   };
   const vistos = new Set();
   const rama = p => {
@@ -667,7 +677,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Homologar cargos y DC</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Matriz Actual ↔ Aspiracional</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -689,7 +699,7 @@ async function vistaEstructura(m) {
   if ($("eFecha")) $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
   if ($("eMan")) $("eMan").onclick = modalManualesDC;
-  if ($("eHomologar")) $("eHomologar").onclick = () => modalHomologar();
+  if ($("eHomologar")) $("eHomologar").onclick = () => modalMatrizCorrespondencia();
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
   if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
   m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
@@ -740,6 +750,7 @@ function iniciarSimuladorDesde(origen) {
   SIM.origen = origen; SIM.sucio = true;
   SIM.titulo = `Simulación (${origen === "aspiracional" ? "desde Aspiracional" : "desde Actual"})`;
   SIM.puestos = fuente.map(p => ({ ...p }));
+  SIM.chatMsgs = [];
   EQ.zoom = null;
   vistaEstructura($("main"));
 }
@@ -751,12 +762,12 @@ function abrirSimulacionGuardada(simId) {
   SIM.permiso = esDueno ? "dueno" : (acc && acc.permiso === "editar" ? "editar" : "ver");
   SIM.origen = s.origen || "guardada"; SIM.titulo = s.titulo || "Simulación";
   SIM.puestos = Array.isArray(s.puestos) ? s.puestos.map(p => ({ ...p })) : [];
-  SIM.sucio = false; EQ.zoom = null;
+  SIM.sucio = false; SIM.chatMsgs = []; EQ.zoom = null;
   vistaEstructura($("main"));
 }
 function cerrarSimulador() {
   if (SIM.sucio && SIM.permiso !== "ver" && !confirm("Tienes cambios sin guardar en esta simulación. ¿Salir sin guardar?")) return;
-  SIM.activo = false; SIM.id = null; SIM.propietario_id = null; SIM.permiso = "dueno"; SIM.origen = null; SIM.titulo = ""; SIM.puestos = []; SIM.sucio = false;
+  SIM.activo = false; SIM.id = null; SIM.propietario_id = null; SIM.permiso = "dueno"; SIM.origen = null; SIM.titulo = ""; SIM.puestos = []; SIM.sucio = false; SIM.chatOpen = false; SIM.chatMsgs = [];
   EQ.zoom = null;
   vistaEstructura($("main"));
 }
@@ -974,6 +985,7 @@ function vistaSimulador(m, pestanasHTML) {
       <div><h1>Estructura</h1><p class="sub" style="margin-bottom:14px">${puedeEd ? "Editando simulación. Haz clic en cualquier puesto para modificarlo y pulsa Guardar cuando quieras conservar los cambios." : `Simulación compartida por ${esc(nombreDe(SIM.propietario_id))} en modo solo lectura.`}</p></div>
       <div class="fila no-print" style="margin-bottom:14px">
         <button class="btn sec" id="sVolver">← Volver</button>
+        <button class="btn sec" id="sChatBtn" style="${SIM.chatOpen ? "background:var(--accent);color:#fff;border-color:var(--accent)" : "color:var(--accent);border-color:var(--accent)"}">✨ Chat estratégico</button>
         <button class="btn sec" id="sPdf">Descargar PDF</button>
         ${!puedeEd ? `<button class="btn" id="sCopia">Guardar copia propia</button>` : `
           ${esDueno ? `<button class="btn sec" id="sComp">Compartir</button>` : ""}
@@ -995,15 +1007,36 @@ function vistaSimulador(m, pestanasHTML) {
       <div><div class="v" style="color:${vac ? "var(--warn)" : "inherit"}">${vac}</div><div class="l">Vacantes${proc ? ` (${proc} en proceso)` : ""}</div></div>
       <div><div class="v">${lista.filter(p => p.nivel_id === "N2").length}</div><div class="l">Direcciones (N2)</div></div>
     </div>
-    <div class="panel" style="padding:14px 16px">
-      <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
-        <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span></div>
-        <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
-      <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>`;
+    <div class="${SIM.chatOpen ? "sim-layout" : ""}">
+      <div class="panel" style="padding:14px 16px;margin-bottom:0">
+        <div class="fila no-print" style="justify-content:space-between;margin-bottom:8px">
+          <div class="leyenda" style="margin:0">${NIVELES.filter(n => lista.some(p => p.nivel_id === n.id)).map(n => `<span><i class="sw" style="background:${COLOR_NIVEL[n.id] || "#8790a5"}"></i>${esc(n.nombre)}</span>`).join("")}<span><i class="sw" style="border:1.5px dashed var(--ink-3);background:transparent"></i>Vacante</span></div>
+          <div class="fila vnav"><button id="zMenos" aria-label="Alejar">−</button><button id="zAjustar" class="hoy">Ajustar</button><button id="zMas" aria-label="Acercar">+</button></div></div>
+        <div class="ocwrap" id="ocwrap"><div class="oc" id="oc"><ul>${arbol}</ul></div></div></div>
+      ${SIM.chatOpen ? `<div class="sim-chat-panel no-print">
+        <div class="fila" style="justify-content:space-between;align-items:center">
+          <div><h3>✨ Chat estratégico</h3><span style="font-size:11.5px;color:var(--ink-3)">Lee tu organigrama simulado en vivo</span></div>
+          <button class="btn sec" id="sChatCerrar" style="padding:4px 9px;font-size:12px">Cerrar</button>
+        </div>
+        <div class="sim-chat-log" id="sChatLog"></div>
+        <div class="sim-chips" id="sChatChips">
+          <button type="button" class="sim-chip" data-sq="Analiza los tramos de control y posibles sobrecargas en esta estructura simulada.">Tramos de control</button>
+          <button type="button" class="sim-chip" data-sq="Compara esta simulación con la estructura actual y la aspiracional: qué brechas ves y qué roles hacen de más o de menos.">Brechas y roles</button>
+          <button type="button" class="sim-chip" data-sq="¿Qué posiciones adicionales recomendarías evaluar para esta estructura? Pregúntame antes de agregarlas.">Sugerir puestos</button>
+        </div>
+        <div class="fila" style="flex-wrap:nowrap;gap:6px">
+          <input type="text" id="sChatIn" placeholder="Pregunta o plantea un escenario…" style="padding:8px 10px;font-size:13px">
+          <button class="btn" id="sChatSend" style="padding:8px 13px;font-size:13px;white-space:nowrap">Enviar</button>
+        </div>
+        <div class="err" id="sChatErr" style="margin-top:4px;min-height:14px;font-size:12px"></div>
+      </div>` : ""}
+    </div>`;
 
   enlazarTabsEstructura(m);
   $("sVolver").onclick = cerrarSimulador;
   $("sPdf").onclick = exportarSimPDF;
+  $("sChatBtn").onclick = () => { SIM.chatOpen = !SIM.chatOpen; EQ.zoom = null; vistaEstructura(m); };
+  if (SIM.chatOpen) iniciarChatSimulador(puedeEd);
   if ($("sTit")) $("sTit").oninput = e => { SIM.titulo = e.target.value; SIM.sucio = true; };
   if ($("sGuardar")) $("sGuardar").onclick = () => guardarSimulacion(false);
   if ($("sCopia")) $("sCopia").onclick = () => guardarSimulacion(true);
@@ -1056,16 +1089,22 @@ function modalPuesto(id, modo = "actual") {
     ${!esSim && !nuevo ? (() => {
       if (!DC_TABLA_OK) return `<div class="dc-box"><h3>Descripción de Cargo</h3><p class="pend" style="margin:4px 0 0">Ejecuta <b>supabase_modulo2_descripciones.sql</b> en Supabase para activar las Descripciones de Cargo y Gemini AI.</p></div>`;
       const dc = dcDe(modo, p.id);
+      const comps = companerosGrupo(modo, p);
       return `<div class="dc-box">
         <div class="fila" style="justify-content:space-between;align-items:center">
-          <div><h3>Descripción de Cargo</h3><div style="font-size:12.5px;color:var(--ink-2)">${dc ? `Archivo adjunto: <b>${esc(dc.archivo_nombre || "Descripción.doc")}</b>` : "Este puesto aún no tiene descripción de cargo."}</div></div>
+          <div><h3>Descripción de Cargo</h3>
+            <div style="font-size:12.5px;color:var(--ink-2)">${dc ? `Archivo adjunto: <b>${esc(dc.archivo_nombre || "Descripción.doc")}</b>` : "Este puesto aún no tiene descripción de cargo."}</div>
+            ${comps.length ? `<div style="font-size:12px;color:var(--accent);margin-top:3px">🔗 Comparte descripción con <b>${comps.length}</b> puesto${comps.length === 1 ? "" : "s"} más (si la actualizas aquí, se actualiza en todos).</div>` : ""}
+          </div>
           <span class="vtag ${dc ? "ok" : "warn"}">${dc ? "Cargada" : "Pendiente"}</span>
         </div>
         <div class="fila" style="margin-top:10px;gap:8px">
-          ${dc && dc.archivo_path ? `<button type="button" class="btn sec" id="dcDesc" style="padding:6px 11px;font-size:12.5px">Descargar Word</button><button type="button" class="btn sec" id="dcAplicarOtros" style="padding:6px 11px;font-size:12.5px">Aplicar a otros puestos…</button>` : ""}
+          ${dc && dc.archivo_path ? `<button type="button" class="btn sec" id="dcDesc" style="padding:6px 11px;font-size:12.5px">Descargar Word</button>` : ""}
+          <button type="button" class="btn sec" id="dcAplicarOtros" style="padding:6px 11px;font-size:12.5px">🔗 ${comps.length ? "Ver / editar cargos iguales" : "Marcar cargos iguales…"}</button>
+          ${comps.length ? `<button type="button" class="btn sec" id="dcSeparar" style="padding:6px 11px;font-size:12.5px;color:var(--warn)">Separar</button>` : ""}
           <button type="button" class="btn sec" id="dcSubir" style="padding:6px 11px;font-size:12.5px">${dc ? "Reemplazar Word" : "Subir Word (.doc/.docx)"}</button>
           <button type="button" class="btn" id="dcIA" style="padding:6px 11px;font-size:12.5px;background:var(--accent)">✨ ${dc ? "Pulir con Gemini AI" : "Crear con Gemini AI"}</button>
-          ${!dc && esAsp && DC_LISTA.some(x => x.estructura_tipo === "actual") ? `<button type="button" class="btn sec" id="dcCopiarAct" style="padding:6px 11px;font-size:12.5px">Copiar desde Actual</button>` : ""}${dc ? `<button type="button" class="btn peligro" id="dcDel" style="padding:6px 4px;font-size:12.5px;margin-left:auto">Quitar</button>` : ""}
+          ${dc ? `<button type="button" class="btn peligro" id="dcDel" style="padding:6px 4px;font-size:12.5px;margin-left:auto">Quitar</button>` : ""}
         </div>
         <input type="file" id="dcFile" accept=".doc,.docx,.pdf" hidden>
         <div class="err" id="dcErr" style="margin-top:6px;min-height:0"></div>
@@ -1110,8 +1149,11 @@ function modalPuesto(id, modo = "actual") {
     try { await eliminarDC(modo, p.id); await cargarEquipo(); modalPuesto(p.id, modo); estado("Descripción eliminada"); } catch (ex) { g("#dcErr").textContent = "No se quitó: " + mensajeError(ex); }
   };
   if (g("#dcIA")) g("#dcIA").onclick = () => modalAsistenteDC(p, modo, lista);
-  if (g("#dcCopiarAct")) g("#dcCopiarAct").onclick = () => modalSincronizarDC(p.id);
-  if (g("#dcAplicarOtros")) g("#dcAplicarOtros").onclick = () => modalAplicarDCaOtros(p, modo);
+  if (g("#dcAplicarOtros")) g("#dcAplicarOtros").onclick = () => modalMarcarIguales(p, modo);
+  if (g("#dcSeparar")) g("#dcSeparar").onclick = async () => {
+    if (!confirm("¿Separar este puesto del grupo? A partir de ahora tendrá su propia Descripción de Cargo independiente.")) return;
+    try { await separarDeGrupo(modo, p.id); await cargarEquipo(); modalPuesto(p.id, modo); estado("Puesto separado del grupo"); } catch (ex) { g("#dcErr").textContent = "No se separó: " + mensajeError(ex); }
+  };
   if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null, modo); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
   if (!nuevo) g("#uDel").onclick = async () => {
     const hijos = lista.filter(x => x.reporta_a === p.id).length;
@@ -1183,6 +1225,20 @@ async function subirArchivoDC(modo, puestoId, file, contenidoJson = null) {
     updated_at: new Date().toISOString()
   };
   await ok(sb.from("descripciones_cargo").upsert(fila, { onConflict: "estructura_tipo,puesto_id" }));
+  // Propagar automáticamente a todos los puestos que comparten el mismo grupo_dc_id
+  const listaOrig = modo === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+  const pOrig = listaOrig.find(x => x.id === puestoId);
+  if (pOrig && pOrig.grupo_dc_id) {
+    const comps = companerosGrupo(modo, pOrig);
+    for (const c of comps) {
+      await ok(sb.from("descripciones_cargo").upsert({
+        estructura_tipo: c.tipo, puesto_id: c.p.id,
+        archivo_path: path, archivo_nombre: file.name,
+        ...(contenidoJson ? { contenido_json: contenidoJson } : {}),
+        updated_at: new Date().toISOString()
+      }, { onConflict: "estructura_tipo,puesto_id" }));
+    }
+  }
 }
 async function descargarArchivoDC(dc, errEl) {
   if (!dc || !dc.archivo_path) return;
@@ -1201,6 +1257,330 @@ async function eliminarDC(modo, puestoId) {
   const otrosUsan = dc && dc.archivo_path && DC_LISTA.some(x => !(x.estructura_tipo === modo && x.puesto_id === puestoId) && x.archivo_path === dc.archivo_path);
   if (dc && dc.archivo_path && !otrosUsan) { try { await sb.storage.from("descripciones_cargo").remove([dc.archivo_path]); } catch (e) { } }
   await ok(sb.from("descripciones_cargo").delete().eq("estructura_tipo", modo).eq("puesto_id", puestoId));
+}
+
+/* ---------- Grupos de cargos iguales (Match / Separar / DC compartida) ---------- */
+function companerosGrupo(modo, puesto) {
+  if (!puesto || !puesto.grupo_dc_id) return [];
+  const gid = puesto.grupo_dc_id;
+  const out = [];
+  PUESTOS.forEach(x => { if (x.grupo_dc_id === gid && !(modo === "actual" && x.id === puesto.id)) out.push({ tipo: "actual", p: x }); });
+  PUESTOS_ASP.forEach(x => { if (x.grupo_dc_id === gid && !(modo === "aspiracional" && x.id === puesto.id)) out.push({ tipo: "aspiracional", p: x }); });
+  return out;
+}
+async function guardarGrupoId(tipo, id, gid) {
+  const tabla = tipo === "aspiracional" ? "puestos_aspiracional" : "puestos";
+  await ok(sb.from(tabla).update({ grupo_dc_id: gid }).eq("id", id));
+}
+async function unirEnGrupo(items) {
+  // items: [{ tipo: "actual"|"aspiracional", id: uuid }]
+  if (items.length < 2) return;
+  let gid = null, dcFuente = null;
+  for (const it of items) {
+    const arr = it.tipo === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+    const obj = arr.find(x => x.id === it.id);
+    if (obj && obj.grupo_dc_id && !gid) gid = obj.grupo_dc_id;
+    const dc = dcDe(it.tipo, it.id);
+    if (dc && !dcFuente) dcFuente = dc;
+  }
+  if (!gid) gid = uuid();
+  // Si alguno ya pertenecía a otro grupo, unimos también sus compañeros
+  const setFinal = new Map();
+  items.forEach(it => setFinal.set(`${it.tipo}:${it.id}`, it));
+  for (const it of items) {
+    const arr = it.tipo === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+    const obj = arr.find(x => x.id === it.id);
+    if (obj && obj.grupo_dc_id) {
+      companerosGrupo(it.tipo, obj).forEach(c => setFinal.set(`${c.tipo}:${c.p.id}`, { tipo: c.tipo, id: c.p.id }));
+    }
+  }
+  for (const it of setFinal.values()) {
+    await guardarGrupoId(it.tipo, it.id, gid);
+    if (dcFuente) await vincularDC(it.tipo, it.id, dcFuente);
+  }
+}
+async function separarDeGrupo(tipo, id) {
+  await guardarGrupoId(tipo, id, null);
+}
+
+/* ---------- Marcar cargos iguales (ej. todos los Analistas comparten DC) ---------- */
+function modalMarcarIguales(puestoOrigen, modoOrigen) {
+  const gidActual = puestoOrigen.grupo_dc_id || null;
+  const dcOrig = dcDe(modoOrigen, puestoOrigen.id);
+  const armarLista = (arr, tipo) => arr
+    .filter(x => !(tipo === modoOrigen && x.id === puestoOrigen.id))
+    .map(x => {
+      const enGrupo = !!(gidActual && x.grupo_dc_id === gidActual);
+      const dcEx = dcDe(tipo, x.id);
+      const equiv = cargosEquivalentes(puestoOrigen, x);
+      return { x, tipo, enGrupo, dcEx, equiv };
+    })
+    .sort((a, b) => (b.enGrupo ? 1 : 0) - (a.enGrupo ? 1 : 0) || (b.equiv ? 1 : 0) - (a.equiv ? 1 : 0) || a.x.cargo.localeCompare(b.x.cargo, "es"));
+
+  const lAct = armarLista(PUESTOS, "actual");
+  const lAsp = armarLista(PUESTOS_ASP, "aspiracional");
+  const bloque = (titulo, items) => !items.length ? "" : `
+    <tr style="background:#f2f4f7"><td colspan="3" style="font-weight:600;font-size:12.5px;color:var(--ink-2)">${titulo}</td></tr>
+    ${items.map(({ x, tipo, enGrupo, dcEx, equiv }) => {
+      const tit = titularPuesto(x);
+      const key = `${tipo}:${x.id}`;
+      const preMarcado = enGrupo || (!gidActual && equiv);
+      return `<tr>
+        <td style="width:28px"><input type="checkbox" class="chk" data-ig="${key}" data-niv="${x.nivel_id || ""}" ${preMarcado ? "checked" : ""}></td>
+        <td><b>${esc(x.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${tit ? esc(tit) : "Vacante"} · ${esc((nivel(x.nivel_id) || {}).nombre || x.nivel_id || "")}</div></td>
+        <td class="num" style="white-space:nowrap">${enGrupo ? `<span class="vtag ok">🔗 En este grupo</span>` : dcEx ? `<span class="vtag warn">Tiene DC</span>` : equiv ? `<span class="vtag info">Sugerido</span>` : `<span class="vtag">Sin DC</span>`}</td>
+      </tr>`;
+    }).join("")}`;
+
+  const el = modal(`<h2>Marcar cargos iguales (DC compartida)</h2>
+    <p class="nota-h">Marca todos los puestos que son el <b>mismo cargo</b> que <b>${esc(puestoOrigen.cargo)}</b> (por ejemplo, todos los Analistas). Los puestos marcados quedarán vinculados y compartirán automáticamente la misma Descripción de Cargo${dcOrig ? ` (<b>${esc(dcOrig.archivo_nombre)}</b>)` : ""}.</p>
+    <div style="max-height:52vh;overflow:auto"><table class="vmov">
+      ${bloque("Estructura Actual", lAct)}
+      ${bloque("Estructura Aspiracional", lAsp)}
+    </table></div>
+    <div class="err" id="igErr"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn sec" id="igMismoNiv" style="padding:7px 11px;font-size:12.5px">Marcar todos los del nivel ${esc((nivel(puestoOrigen.nivel_id) || {}).nombre || puestoOrigen.nivel_id || "")}</button>
+      <span class="fila"><button class="btn sec" id="igNo">Cancelar</button><button class="btn" id="igOk">Guardar grupo</button></span>
+    </div>`, 740);
+
+  el.querySelector("#igNo").onclick = () => modalPuesto(puestoOrigen.id, modoOrigen);
+  el.querySelector("#igMismoNiv").onclick = () => {
+    el.querySelectorAll(`[data-ig][data-niv="${puestoOrigen.nivel_id || ""}"]`).forEach(c => c.checked = true);
+  };
+  el.querySelector("#igOk").onclick = async () => {
+    const marcados = [...el.querySelectorAll("[data-ig]:checked")].map(c => {
+      const [tipo, id] = c.dataset.ig.split(":"); return { tipo, id };
+    });
+    const desmarcados = [...el.querySelectorAll("[data-ig]:not(:checked)")].map(c => {
+      const [tipo, id] = c.dataset.ig.split(":"); return { tipo, id };
+    });
+    el.querySelector("#igOk").setAttribute("aria-disabled", "true");
+    el.querySelector("#igErr").textContent = "Guardando vínculos…";
+    try {
+      // Quitar del grupo a los que estaban en este grupo y fueron desmarcados
+      if (gidActual) {
+        for (const d of desmarcados) {
+          const arr = d.tipo === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+          const obj = arr.find(x => x.id === d.id);
+          if (obj && obj.grupo_dc_id === gidActual) await separarDeGrupo(d.tipo, d.id);
+        }
+      }
+      if (marcados.length) {
+        await unirEnGrupo([{ tipo: modoOrigen, id: puestoOrigen.id }, ...marcados]);
+      } else if (gidActual) {
+        await separarDeGrupo(modoOrigen, puestoOrigen.id);
+      }
+      await cargarEquipo();
+      cerrarModal();
+      modalPuesto(puestoOrigen.id, modoOrigen);
+      estado(marcados.length ? `Grupo guardado (${marcados.length + 1} puestos comparten DC)` : "Puesto separado");
+    } catch (ex) {
+      el.querySelector("#igOk").removeAttribute("aria-disabled");
+      const m = mensajeError(ex);
+      el.querySelector("#igErr").textContent = /grupo_dc_id|column/i.test(m)
+        ? "Falta ejecutar supabase_modulo3_match_y_grupos.sql en Supabase (agrega la columna grupo_dc_id)."
+        : "No se guardó: " + m;
+    }
+  };
+}
+
+/* ---------- Matriz de Correspondencia (Actual ↔ Aspiracional: Match / Separar) ---------- */
+function modalMatrizCorrespondencia(filtro = "todas") {
+  // Construir relaciones existentes por grupo_dc_id
+  const grupos = new Map();
+  PUESTOS.forEach(p => { if (p.grupo_dc_id) { if (!grupos.has(p.grupo_dc_id)) grupos.set(p.grupo_dc_id, { act: [], asp: [] }); grupos.get(p.grupo_dc_id).act.push(p); } });
+  PUESTOS_ASP.forEach(p => { if (p.grupo_dc_id) { if (!grupos.has(p.grupo_dc_id)) grupos.set(p.grupo_dc_id, { act: [], asp: [] }); grupos.get(p.grupo_dc_id).asp.push(p); } });
+
+  const filasMatch = [];
+  const matchedActIds = new Set(), matchedAspIds = new Set();
+  for (const [gid, g] of grupos.entries()) {
+    if (g.act.length && g.asp.length) {
+      filasMatch.push({ gid, act: g.act, asp: g.asp });
+      g.act.forEach(x => matchedActIds.add(x.id));
+      g.asp.forEach(x => matchedAspIds.add(x.id));
+    }
+  }
+  const soloAct = PUESTOS.filter(p => !matchedActIds.has(p.id)).sort((a, b) => a.cargo.localeCompare(b.cargo, "es"));
+  const soloAsp = PUESTOS_ASP.filter(p => !matchedAspIds.has(p.id)).sort((a, b) => a.cargo.localeCompare(b.cargo, "es"));
+
+  const badgeDC = (tipo, p) => {
+    const dc = dcDe(tipo, p.id);
+    return dc ? `<span class="vtag ok" style="font-size:10.5px">📄 ${esc(dc.archivo_nombre || "DC")}</span>` : `<span class="vtag warn" style="font-size:10.5px">Sin DC</span>`;
+  };
+  const chipPuesto = (tipo, p, conSep = false) => `<div style="padding:4px 0;border-bottom:1px dashed var(--rule-2)">
+    <b>${esc(p.cargo)}</b> <span style="font-size:11.5px;color:var(--ink-3)">· ${titularPuesto(p) ? esc(titularPuesto(p)) : "Vacante"}</span>
+    <div class="fila" style="gap:6px;margin-top:2px">${badgeDC(tipo, p)}${conSep ? `<button type="button" class="btn peligro" style="padding:0;font-size:11.5px" data-msep="${tipo}:${p.id}">Separar</button>` : ""}</div>
+  </div>`;
+
+  const el = modal(`<h2>Matriz de Correspondencia (Actual ↔ Aspiracional)</h2>
+    <p class="nota-h">Visualiza qué posiciones <b>se mantienen</b> (con Match) y cuáles son exclusivas de Actual o de Aspiracional. <b>Regla:</b> si tienen Match comparten automáticamente la misma Descripción de Cargo; si las separas, cada una queda con lo suyo.</p>
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap">
+      <div class="toggle" id="mzFilt">
+        <button data-f="todas" class="${filtro === "todas" ? "on" : ""}">Todas</button>
+        <button data-f="match" class="${filtro === "match" ? "on" : ""}">Se mantienen (${filasMatch.length})</button>
+        <button data-f="act" class="${filtro === "act" ? "on" : ""}">Solo Actual (${soloAct.length})</button>
+        <button data-f="asp" class="${filtro === "asp" ? "on" : ""}">Solo Aspiracional (${soloAsp.length})</button>
+      </div>
+      <div class="fila" style="gap:8px">
+        <button type="button" class="btn sec" id="mzAuto" style="padding:6px 11px;font-size:12.5px">✨ Auto-sugerir matches</button>
+        <button type="button" class="btn sec" id="mzHom" style="padding:6px 11px;font-size:12.5px">Homologar nombres…</button>
+      </div>
+    </div>
+    <div style="max-height:56vh;overflow:auto">
+      ${(filtro === "todas" || filtro === "match") ? `<h3 style="font-size:13.5px;margin:6px 0 6px;color:var(--ok)">✓ Posiciones que se mantienen · Match activo (${filasMatch.length} grupo${filasMatch.length === 1 ? "" : "s"})</h3>
+        ${filasMatch.length ? `<table class="vmov" style="margin-bottom:16px"><tr><th style="width:42%">Estructura Actual</th><th style="width:42%">Estructura Aspiracional</th><th class="num">Acciones</th></tr>
+        ${filasMatch.map(g => `<tr>
+          <td>${g.act.map(p => chipPuesto("actual", p, g.act.length + g.asp.length > 2)).join("")}</td>
+          <td>${g.asp.map(p => chipPuesto("aspiracional", p, g.act.length + g.asp.length > 2)).join("")}</td>
+          <td class="num" style="vertical-align:middle">
+            <button type="button" class="btn sec" style="padding:4px 9px;font-size:12px;color:var(--bad)" data-msepall="${g.gid}">Separar match</button>
+          </td></tr>`).join("")}</table>` : `<p class="vacio" style="font-size:13px;margin:4px 0 14px">Aún no hay matches guardados. Pulsa <b>✨ Auto-sugerir matches</b> o vincula puestos abajo.</p>`}` : ""}
+
+      ${(filtro === "todas" || filtro === "act") && soloAct.length ? `<h3 style="font-size:13.5px;margin:10px 0 6px;color:var(--warn)">Solo en Estructura Actual (${soloAct.length})</h3>
+        <table class="vmov" style="margin-bottom:16px"><tr><th>Puesto Actual</th><th>Hacer Match con Aspiracional</th><th class="num" style="width:110px"></th></tr>
+        ${soloAct.map(p => `<tr>
+          <td><b>${esc(p.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${titularPuesto(p) ? esc(titularPuesto(p)) : "Vacante"} · ${badgeDC("actual", p)}</div></td>
+          <td><select data-msel-act="${p.id}" style="padding:5px 8px;font-size:12px"><option value="">— Elegir puesto Aspiracional —</option>${PUESTOS_ASP.map(pa => `<option value="${pa.id}">${esc(pa.cargo)}${titularPuesto(pa) ? " · " + esc(titularPuesto(pa)) : ""}</option>`).join("")}</select></td>
+          <td class="num"><button type="button" class="btn sec" style="padding:5px 10px;font-size:12px" data-mmatch-act="${p.id}">Hacer match</button></td>
+        </tr>`).join("")}</table>` : ""}
+
+      ${(filtro === "todas" || filtro === "asp") && soloAsp.length ? `<h3 style="font-size:13.5px;margin:10px 0 6px;color:var(--accent)">Solo en Estructura Aspiracional / Nuevos (${soloAsp.length})</h3>
+        <table class="vmov"><tr><th>Puesto Aspiracional</th><th>Hacer Match con Actual</th><th class="num" style="width:110px"></th></tr>
+        ${soloAsp.map(p => `<tr>
+          <td><b>${esc(p.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${titularPuesto(p) ? esc(titularPuesto(p)) : "Vacante"} · ${badgeDC("aspiracional", p)}</div></td>
+          <td><select data-msel-asp="${p.id}" style="padding:5px 8px;font-size:12px"><option value="">— Elegir puesto Actual —</option>${PUESTOS.map(pa => `<option value="${pa.id}">${esc(pa.cargo)}${titularPuesto(pa) ? " · " + esc(titularPuesto(pa)) : ""}</option>`).join("")}</select></td>
+          <td class="num"><button type="button" class="btn sec" style="padding:5px 10px;font-size:12px" data-mmatch-asp="${p.id}">Hacer match</button></td>
+        </tr>`).join("")}</table>` : ""}
+    </div>
+    <div class="err" id="mzErr"></div>
+    <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="mzCerrar">Cerrar</button></div>`, 960);
+
+  const err = t => el.querySelector("#mzErr").textContent = t;
+  const manejarErr = ex => {
+    const m = mensajeError(ex);
+    err(/grupo_dc_id|column/i.test(m) ? "Falta ejecutar supabase_modulo3_match_y_grupos.sql en Supabase (agrega la columna grupo_dc_id)." : "No se completó: " + m);
+  };
+  el.querySelector("#mzCerrar").onclick = cerrarModal;
+  el.querySelector("#mzFilt").onclick = e => { const b = e.target.closest("[data-f]"); if (b) modalMatrizCorrespondencia(b.dataset.f); };
+  el.querySelector("#mzHom").onclick = () => modalHomologar();
+
+  el.querySelector("#mzAuto").onclick = async () => {
+    const sugeridos = sugerirParejasEstructuras().filter(x => x.pAct && x.score >= 60 && !(x.pAct.grupo_dc_id && x.pAct.grupo_dc_id === x.pAsp.grupo_dc_id));
+    if (!sugeridos.length) return err("No encontré nuevos matches automáticos pendientes.");
+    if (!confirm(`Encontré ${sugeridos.length} correspondencia(s) automática(s) entre Actual y Aspiracional (por persona o nombre similar). ¿Quieres hacer match y compartir su Descripción de Cargo?`)) return;
+    err(`Vinculando ${sugeridos.length} match(es)…`);
+    try {
+      for (const s of sugeridos) {
+        await unirEnGrupo([{ tipo: "actual", id: s.pAct.id }, { tipo: "aspiracional", id: s.pAsp.id }]);
+        await cargarEquipo();
+      }
+      estado(`${sugeridos.length} match(es) creados`);
+      modalMatrizCorrespondencia(filtro);
+    } catch (ex) { manejarErr(ex); }
+  };
+
+  el.querySelectorAll("[data-msep]").forEach(b => b.onclick = async () => {
+    const [tipo, id] = b.dataset.msep.split(":");
+    err("Separando puesto…");
+    try { await separarDeGrupo(tipo, id); await cargarEquipo(); estado("Puesto separado"); modalMatrizCorrespondencia(filtro); } catch (ex) { manejarErr(ex); }
+  });
+  el.querySelectorAll("[data-msepall]").forEach(b => b.onclick = async () => {
+    const gid = b.dataset.msepall;
+    if (!confirm("¿Separar este match? Cada puesto quedará con su propia Descripción de Cargo independiente.")) return;
+    err("Separando match…");
+    try {
+      for (const p of PUESTOS.filter(x => x.grupo_dc_id === gid)) await separarDeGrupo("actual", p.id);
+      for (const p of PUESTOS_ASP.filter(x => x.grupo_dc_id === gid)) await separarDeGrupo("aspiracional", p.id);
+      await cargarEquipo(); estado("Match separado"); modalMatrizCorrespondencia(filtro);
+    } catch (ex) { manejarErr(ex); }
+  });
+  el.querySelectorAll("[data-mmatch-act]").forEach(b => b.onclick = async () => {
+    const idAct = b.dataset.mmatchAct, idAsp = el.querySelector(`[data-msel-act="${idAct}"]`).value;
+    if (!idAsp) return err("Elige primero el puesto Aspiracional con el que quieres hacer match.");
+    err("Creando match…");
+    try { await unirEnGrupo([{ tipo: "actual", id: idAct }, { tipo: "aspiracional", id: idAsp }]); await cargarEquipo(); estado("Match creado y DC sincronizada"); modalMatrizCorrespondencia(filtro); } catch (ex) { manejarErr(ex); }
+  });
+  el.querySelectorAll("[data-mmatch-asp]").forEach(b => b.onclick = async () => {
+    const idAsp = b.dataset.mmatchAsp, idAct = el.querySelector(`[data-msel-asp="${idAsp}"]`).value;
+    if (!idAct) return err("Elige primero el puesto Actual con el que quieres hacer match.");
+    err("Creando match…");
+    try { await unirEnGrupo([{ tipo: "actual", id: idAct }, { tipo: "aspiracional", id: idAsp }]); await cargarEquipo(); estado("Match creado y DC sincronizada"); modalMatrizCorrespondencia(filtro); } catch (ex) { manejarErr(ex); }
+  });
+}
+
+/* ---------- Chat estratégico en vivo dentro del Simulador ---------- */
+function iniciarChatSimulador(puedeEd) {
+  const log = $("sChatLog"), inp = $("sChatIn"), err = $("sChatErr"), sendBtn = $("sChatSend");
+  if (!log || !inp) return;
+  $("sChatCerrar").onclick = () => { SIM.chatOpen = false; EQ.zoom = null; vistaEstructura($("main")); };
+
+  const extraerPropuesta = txt => {
+    const m = txt.match(/<<<PUESTO\s*(\{[\s\S]*?\})\s*>>>/);
+    if (!m) return { limpio: txt, prop: null };
+    let prop = null;
+    try { prop = JSON.parse(m[1]); } catch (e) { prop = null; }
+    return { limpio: txt.replace(m[0], "").trim(), prop };
+  };
+  const pintarLog = () => {
+    if (!SIM.chatMsgs.length) {
+      log.innerHTML = `<div class="dc-msg m">Hola ${esc(primerNombre(YO.nombre))}. Estoy viendo tu simulación <b>${esc(SIM.titulo)}</b> (${SIM.puestos.length} puestos). Puedes preguntarme por brechas de nivel, tramos de control o plantear posiciones nuevas (siempre te preguntaré antes de agregar algo al organigrama).</div>`;
+      return;
+    }
+    log.innerHTML = SIM.chatMsgs.map((m, idx) => {
+      if (m.role === "user") return `<div class="dc-msg u">${esc(m.text)}</div>`;
+      const { limpio, prop } = extraerPropuesta(m.text);
+      return `<div class="dc-msg m">${esc(limpio)}${prop && puedeEd ? `<div class="sim-sug-card"><b>Propuesta de puesto:</b> ${esc(prop.cargo || "")} (${esc(prop.nivel_id || "B4")})${prop.reporta_a_cargo ? `<br><span style="color:var(--ink-2)">Reporta a: ${esc(prop.reporta_a_cargo)}</span>` : ""}<div style="margin-top:7px"><button type="button" class="btn" style="padding:5px 10px;font-size:12px;background:var(--ok)" data-saddp="${idx}">＋ Agregar este puesto al simulador</button></div></div>` : ""}</div>`;
+    }).join("");
+    log.scrollTop = log.scrollHeight;
+    log.querySelectorAll("[data-saddp]").forEach(b => b.onclick = () => {
+      const m = SIM.chatMsgs[+b.dataset.saddp]; if (!m) return;
+      const { prop } = extraerPropuesta(m.text); if (!prop || !prop.cargo) return;
+      const jefe = prop.reporta_a_cargo ? SIM.puestos.find(x => limpiar(x.cargo).includes(limpiar(prop.reporta_a_cargo)) || limpiar(prop.reporta_a_cargo).includes(limpiar(x.cargo))) : null;
+      SIM.puestos.push({
+        id: uuid(), cargo: texto(prop.cargo), nivel_id: NIVELES.some(n => n.id === prop.nivel_id) ? prop.nivel_id : "B4",
+        reporta_a: jefe ? jefe.id : null, persona_id: null, nombre_libre: texto(prop.nombre_libre) || null,
+        en_proceso: prop.en_proceso !== false, orden: SIM.puestos.length, encargado_id: null, supervisor_interino_id: null
+      });
+      SIM.sucio = true;
+      estado(`Puesto “${prop.cargo}” agregado al simulador`);
+      vistaEstructura($("main"));
+    });
+  };
+  const armarContextoSim = () => {
+    const mapear = arr => arr.map(p => {
+      const j = arr.find(x => x.id === p.reporta_a);
+      return { cargo: p.cargo, nivel: (nivel(p.nivel_id) || {}).nombre || p.nivel_id || "", titular: titularPuesto(p) || "", reporta_a: j ? j.cargo : "", en_proceso: !!p.en_proceso };
+    });
+    return { titulo: SIM.titulo, puestos: mapear(SIM.puestos), actual: mapear(PUESTOS), aspiracional: mapear(PUESTOS_ASP) };
+  };
+  async function enviar(textoUsuario) {
+    const t = texto(textoUsuario != null ? textoUsuario : inp.value);
+    if (!t) return;
+    inp.value = ""; err.textContent = "Gemini está analizando tu estructura…";
+    sendBtn.setAttribute("aria-disabled", "true");
+    SIM.chatMsgs.push({ role: "user", text: t });
+    pintarLog();
+    try {
+      const { data, error } = await sb.functions.invoke("descripcion-ia", {
+        body: { accion: "simulador", simulacion: armarContextoSim(), mensajes: SIM.chatMsgs }
+      });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "Actualiza la Edge Function “descripcion-ia” en Supabase para activar el chat del simulador.");
+      err.textContent = "";
+      SIM.chatMsgs.push({ role: "model", text: data.respuesta });
+      pintarLog();
+    } catch (e) {
+      err.textContent = e.message || String(e);
+    } finally {
+      if (sendBtn.isConnected) sendBtn.removeAttribute("aria-disabled");
+    }
+  }
+  sendBtn.onclick = () => enviar();
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); enviar(); } };
+  $("sChatChips").onclick = e => { const b = e.target.closest("[data-sq]"); if (b) enviar(b.dataset.sq); };
+  pintarLog();
 }
 
 /* ---------- Sincronizar Descripciones de Cargo (Actual -> Aspiracional) ---------- */
