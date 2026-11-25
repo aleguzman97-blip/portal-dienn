@@ -667,7 +667,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${esAsp && puedeEditar && DC_TABLA_OK && PUESTOS_ASP.length ? `<button class="btn sec" id="eSyncDC">Sincronizar DC desde Actual</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Homologar cargos y DC</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -689,7 +689,7 @@ async function vistaEstructura(m) {
   if ($("eFecha")) $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
   if ($("eMan")) $("eMan").onclick = modalManualesDC;
-  if ($("eSyncDC")) $("eSyncDC").onclick = modalSincronizarDC;
+  if ($("eHomologar")) $("eHomologar").onclick = () => modalHomologar();
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
   if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
   m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
@@ -1204,15 +1204,198 @@ async function eliminarDC(modo, puestoId) {
 }
 
 /* ---------- Sincronizar Descripciones de Cargo (Actual -> Aspiracional) ---------- */
-const STOP_DC = new Set(["de", "del", "la", "las", "el", "los", "en", "y", "para", "a", "con", "staff", "proyeccion"]);
+const STOP_DC = new Set(["de", "del", "la", "las", "el", "los", "en", "y", "para", "a", "con", "staff", "proyeccion", "corp", "corporativo", "corporativa", "aplicacion"]);
 function normalizarCargoDC(s) {
   return limpiar(s)
     .replace(/\([^)]*\)/g, " ")
-    .replace(/b[1-5]\+?\*?/g, " ")
+    .replace(/\bb[1-5]\+?\*?\b/g, " ")
     .replace(/[^a-z0-9 ]/g, " ")
     .split(/\s+/)
     .filter(w => w && !STOP_DC.has(w))
     .join(" ");
+}
+function similitudCargos(sA, sB) {
+  const ta = normalizarCargoDC(sA).split(" ").filter(Boolean);
+  const tb = normalizarCargoDC(sB).split(" ").filter(Boolean);
+  if (!ta.length || !tb.length) return 0;
+  const setB = new Set(tb);
+  const comunes = ta.filter(w => setB.has(w)).length;
+  return (2 * comunes) / (ta.length + tb.length);
+}
+function puntuarPareja(pAct, pAsp) {
+  const tAct = titularPuesto(pAct), tAsp = titularPuesto(pAsp);
+  if (pAct.persona_id && pAsp.persona_id && pAct.persona_id === pAsp.persona_id) return { score: 100, motivo: "Misma persona" };
+  if (tAct && tAsp && mismaPersona(tAct, tAsp)) return { score: 98, motivo: "Misma persona" };
+  const nAct = normalizarCargoDC(pAct.cargo), nAsp = normalizarCargoDC(pAsp.cargo);
+  if (nAct && nAsp && nAct === nAsp) return { score: 92, motivo: "Mismo cargo" };
+  const sim = similitudCargos(pAct.cargo, pAsp.cargo);
+  const bonoNiv = pAct.nivel_id && pAct.nivel_id === pAsp.nivel_id ? 10 : 0;
+  if (sim >= 0.45) return { score: Math.round(sim * 80) + bonoNiv, motivo: "Nombre similar" };
+  return { score: 0, motivo: "" };
+}
+function sugerirParejasEstructuras() {
+  const usadosAct = new Set();
+  const pares = [];
+  const cand = [];
+  for (const pAsp of PUESTOS_ASP) {
+    for (const pAct of PUESTOS) {
+      const r = puntuarPareja(pAct, pAsp);
+      if (r.score > 0) cand.push({ pAct, pAsp, ...r });
+    }
+  }
+  cand.sort((a, b) => b.score - a.score);
+  const asigAsp = new Map();
+  for (const c of cand) {
+    if (asigAsp.has(c.pAsp.id) || usadosAct.has(c.pAct.id)) continue;
+    asigAsp.set(c.pAsp.id, c);
+    usadosAct.add(c.pAct.id);
+  }
+  for (const pAsp of PUESTOS_ASP) {
+    if (asigAsp.has(pAsp.id)) {
+      pares.push(asigAsp.get(pAsp.id));
+    } else {
+      let mejor = null;
+      for (const pAct of PUESTOS) {
+        const r = puntuarPareja(pAct, pAsp);
+        if (r.score >= 55 && (!mejor || r.score > mejor.score)) mejor = { pAct, pAsp, ...r, motivo: r.motivo + " (múltiple)" };
+      }
+      pares.push(mejor || { pAct: null, pAsp, score: 0, motivo: "Sin pareja" });
+    }
+  }
+  return pares.sort((a, b) => b.score - a.score || a.pAsp.cargo.localeCompare(b.pAsp.cargo, "es"));
+}
+function modalHomologar(mostrarTodos = false) {
+  const pares = sugerirParejasEstructuras();
+  const enriquecidos = pares.map(x => {
+    const dcAct = x.pAct ? dcDe("actual", x.pAct.id) : null;
+    const dcAsp = dcDe("aspiracional", x.pAsp.id);
+    const nomDistinto = !!(x.pAct && limpiar(x.pAct.cargo) !== limpiar(x.pAsp.cargo));
+    const dcFaltaEnAsp = !!(dcAct && !dcAsp);
+    const dcFaltaEnAct = !!(dcAsp && !dcAct);
+    const necesitaAccion = nomDistinto || dcFaltaEnAsp || dcFaltaEnAct;
+    return { ...x, dcAct, dcAsp, nomDistinto, dcFaltaEnAsp, dcFaltaEnAct, necesitaAccion };
+  });
+  const visibles = mostrarTodos ? enriquecidos : enriquecidos.filter(x => x.necesitaAccion || !x.pAct);
+  const nPend = enriquecidos.filter(x => x.necesitaAccion).length;
+  const opcActual = [...PUESTOS].sort((a, b) => a.cargo.localeCompare(b.cargo, "es"));
+
+  const el = modal(`<h2>Homologar cargos y Descripciones (Actual ↔ Aspiracional)</h2>
+    <p class="nota-h">Detecté <b>${nPend}</b> puesto${nPend === 1 ? "" : "s"} con nombre distinto entre estructuras o con Descripción de Cargo pendiente por replicar. Revisa las parejas sugeridas, elige cómo homologar el nombre y si deseas replicar la Descripción.</p>
+    <div class="fila" style="justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+      <div class="fila" style="gap:6px">
+        <button type="button" class="btn sec" id="hmAllAct" style="padding:5px 10px;font-size:12px">Todos: usar nombre Actual</button>
+        <button type="button" class="btn sec" id="hmAllAsp" style="padding:5px 10px;font-size:12px">Todos: usar nombre Aspiracional</button>
+        <button type="button" class="btn sec" id="hmNoNom" style="padding:5px 10px;font-size:12px">Solo replicar DC</button>
+      </div>
+      <label class="fila" style="gap:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer"><input type="checkbox" class="chk" id="hmTodos" ${mostrarTodos ? "checked" : ""}> Mostrar también ya alineados (${enriquecidos.length - enriquecidos.filter(x => x.necesitaAccion || !x.pAct).length})</label>
+    </div>
+    ${!visibles.length ? `<p class="vacio" style="margin:12px 0">¡Todos los puestos emparejados ya tienen el mismo nombre y sus descripciones sincronizadas!</p>
+      <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="hmNo">Cerrar</button></div>`
+    : `<div style="max-height:52vh;overflow:auto"><table class="vmov">
+        <tr><th style="width:26px"></th><th>Puesto Aspiracional (Futuro)</th><th>Pareja en Estructura Actual</th><th style="width:175px">Homologar nombre</th><th style="width:155px">Replicar DC</th></tr>
+        ${visibles.map(x => {
+          const id = x.pAsp.id, titAsp = titularPuesto(x.pAsp);
+          const dcDef = x.dcFaltaEnAsp ? "act2asp" : x.dcFaltaEnAct ? "asp2act" : "";
+          const nomDef = x.nomDistinto ? "usar_asp" : "";
+          const checked = x.pAct && (x.nomDistinto || !!dcDef);
+          return `<tr data-hrow="${id}">
+            <td><input type="checkbox" class="chk" data-hchk="${id}" ${checked ? "checked" : ""}></td>
+            <td><b>${esc(x.pAsp.cargo)}</b>
+              <div style="font-size:11.5px;color:var(--ink-3)">${titAsp ? esc(titAsp) : "Vacante"} ${x.dcAsp ? '<span class="vtag ok" style="font-size:10.5px">📄 Tiene DC</span>' : '<span class="vtag warn" style="font-size:10.5px">Sin DC</span>'}</div>
+            </td>
+            <td>
+              <select data-hact="${id}" style="padding:5px 7px;font-size:12px">
+                <option value="">— Sin pareja en Actual —</option>
+                ${opcActual.map(pa => {
+                  const ta = titularPuesto(pa), dca = dcDe("actual", pa.id);
+                  return `<option value="${pa.id}" ${x.pAct && x.pAct.id === pa.id ? "selected" : ""}>${esc(pa.cargo)}${ta ? " · " + esc(ta) : ""}${dca ? " [📄 DC]" : ""}</option>`;
+                }).join("")}
+              </select>
+              ${x.motivo && x.pAct ? `<div style="font-size:11px;color:var(--accent);margin-top:3px">${esc(x.motivo)}</div>` : ""}
+            </td>
+            <td>
+              <select data-hnom="${id}" style="padding:5px 7px;font-size:12px">
+                <option value="" ${!nomDef ? "selected" : ""}>${x.pAct && !x.nomDistinto ? "✓ Nombres iguales" : "Mantener distintos"}</option>
+                <option value="usar_act">Usar nombre Actual</option>
+                <option value="usar_asp" ${nomDef === "usar_asp" ? "selected" : ""}>Usar nombre Aspiracional</option>
+              </select>
+            </td>
+            <td>
+              <select data-hdc="${id}" style="padding:5px 7px;font-size:12px">
+                <option value="" ${!dcDef ? "selected" : ""}>${x.dcAct && x.dcAsp ? "✓ Ambas tienen DC" : "No replicar"}</option>
+                <option value="act2asp" ${dcDef === "act2asp" ? "selected" : ""}>Actual → Aspiracional</option>
+                <option value="asp2act" ${dcDef === "asp2act" ? "selected" : ""}>Aspiracional → Actual</option>
+              </select>
+            </td>
+          </tr>`;
+        }).join("")}
+      </table></div>
+      <div class="err" id="hmErr"></div>
+      <div class="fila" style="justify-content:space-between;margin-top:14px">
+        <span style="font-size:12px;color:var(--ink-3)">Los cambios se guardan en vivo en Supabase para Actual y Aspiracional.</span>
+        <span class="fila"><button class="btn sec" id="hmNo">Cancelar</button><button class="btn" id="hmOk">Aplicar seleccionados</button></span>
+      </div>`}`, 960);
+
+  el.querySelector("#hmNo").onclick = cerrarModal;
+  el.querySelector("#hmTodos").onchange = e => modalHomologar(e.target.checked);
+  if (el.querySelector("#hmAllAct")) el.querySelector("#hmAllAct").onclick = () => {
+    el.querySelectorAll("[data-hnom]").forEach(s => { const id = s.dataset.hnom; if (el.querySelector(`[data-hact="${id}"]`).value) { s.value = "usar_act"; el.querySelector(`[data-hchk="${id}"]`).checked = true; } });
+  };
+  if (el.querySelector("#hmAllAsp")) el.querySelector("#hmAllAsp").onclick = () => {
+    el.querySelectorAll("[data-hnom]").forEach(s => { const id = s.dataset.hnom; if (el.querySelector(`[data-hact="${id}"]`).value) { s.value = "usar_asp"; el.querySelector(`[data-hchk="${id}"]`).checked = true; } });
+  };
+  if (el.querySelector("#hmNoNom")) el.querySelector("#hmNoNom").onclick = () => {
+    el.querySelectorAll("[data-hnom]").forEach(s => s.value = "");
+  };
+  el.querySelectorAll("[data-hact]").forEach(s => s.onchange = () => {
+    const id = s.dataset.hact, pidAct = s.value;
+    const pAsp = PUESTOS_ASP.find(z => z.id === id), pAct = PUESTOS.find(z => z.id === pidAct);
+    const sNom = el.querySelector(`[data-hnom="${id}"]`), sDc = el.querySelector(`[data-hdc="${id}"]`), chk = el.querySelector(`[data-hchk="${id}"]`);
+    if (!pAct) { sNom.value = ""; sDc.value = ""; chk.checked = false; return; }
+    const dcA = dcDe("actual", pAct.id), dcB = dcDe("aspiracional", pAsp.id);
+    sNom.value = limpiar(pAct.cargo) !== limpiar(pAsp.cargo) ? "usar_asp" : "";
+    sDc.value = dcA && !dcB ? "act2asp" : dcB && !dcA ? "asp2act" : "";
+    chk.checked = !!(sNom.value || sDc.value);
+  });
+  if (el.querySelector("#hmOk")) el.querySelector("#hmOk").onclick = async () => {
+    const filas = [];
+    el.querySelectorAll("[data-hchk]:checked").forEach(c => {
+      const pidAsp = c.dataset.hchk;
+      const pidAct = el.querySelector(`[data-hact="${pidAsp}"]`).value;
+      const accNom = el.querySelector(`[data-hnom="${pidAsp}"]`).value;
+      const accDc = el.querySelector(`[data-hdc="${pidAsp}"]`).value;
+      if (pidAct && (accNom || accDc)) filas.push({ pidAsp, pidAct, accNom, accDc });
+    });
+    if (!filas.length) return (el.querySelector("#hmErr").textContent = "Marca al menos una fila con una acción de nombre o descripción.");
+    el.querySelector("#hmOk").setAttribute("aria-disabled", "true");
+    el.querySelector("#hmErr").textContent = `Aplicando homologación en ${filas.length} puesto(s)…`;
+    try {
+      let nNom = 0, nDc = 0;
+      for (const f of filas) {
+        const pAct = PUESTOS.find(z => z.id === f.pidAct), pAsp = PUESTOS_ASP.find(z => z.id === f.pidAsp);
+        if (!pAct || !pAsp) continue;
+        if (f.accNom === "usar_act" && pAsp.cargo !== pAct.cargo) {
+          await ok(sb.from("puestos_aspiracional").update({ cargo: pAct.cargo }).eq("id", pAsp.id));
+          nNom++;
+        } else if (f.accNom === "usar_asp" && pAct.cargo !== pAsp.cargo) {
+          await ok(sb.from("puestos").update({ cargo: pAsp.cargo }).eq("id", pAct.id));
+          nNom++;
+        }
+        if (f.accDc === "act2asp") {
+          const dc = dcDe("actual", pAct.id);
+          if (dc) { await vincularDC("aspiracional", pAsp.id, dc); nDc++; }
+        } else if (f.accDc === "asp2act") {
+          const dc = dcDe("aspiracional", pAsp.id);
+          if (dc) { await vincularDC("actual", pAct.id, dc); nDc++; }
+        }
+      }
+      cerrarModal();
+      await recargar(`Homologación aplicada: ${nNom} nombre(s) y ${nDc} descripción(es)`);
+    } catch (e) {
+      el.querySelector("#hmOk").removeAttribute("aria-disabled");
+      el.querySelector("#hmErr").textContent = "No se completó: " + mensajeError(e);
+    }
+  };
 }
 function cargosEquivalentes(pA, pB) {
   if (!pA || !pB) return false;
