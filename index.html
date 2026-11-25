@@ -128,9 +128,11 @@
   .dc-msg.m{align-self:flex-start;background:#fff;border:1px solid var(--rule);color:var(--ink)}
   .ocb .ocdc{font-size:10px;color:var(--ok);background:#e1f2ec;border-radius:4px;padding:1px 6px;margin-top:3px;font-weight:500}
   .ocb .ocgrp{font-size:9.5px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;margin-top:2px}
-  .sim-layout{display:grid;grid-template-columns:1fr 370px;gap:16px;align-items:start}
-  @media(max-width:1050px){.sim-layout{grid-template-columns:1fr}}
-  .sim-chat-panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px;display:flex;flex-direction:column;height:76vh;position:sticky;top:16px}
+  .sim-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start;width:100%}
+  .sim-layout > *{min-width:0}
+  main.ancho-full{max-width:none}
+  @media(max-width:980px){.sim-layout{grid-template-columns:1fr}.sim-chat-panel{position:static;height:60vh}}
+  .sim-chat-panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px;display:flex;flex-direction:column;height:calc(100vh - 120px);min-height:420px;position:sticky;top:16px}
   .sim-chat-panel h3{font-size:15px;margin:0}
   .sim-chat-log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:10px;background:#f6f8fb;border:1px solid var(--rule);border-radius:8px;margin:10px 0}
   .sim-sug-card{margin-top:6px;padding:9px 11px;background:#eef3fc;border:1px solid #c3d4f7;border-radius:8px;font-size:12.5px}
@@ -2398,6 +2400,7 @@ function pintar() {
   if ((S.vista === "admin" && !soyAdmin()) || (S.vista === "estructura" && !PERM.estructura) || S.vista === "org") S.vista = "mias";
   document.querySelectorAll("aside [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === S.vista));
   const m = $("main");
+  m.classList.toggle("ancho-full", S.vista === "estructura");
   if (S.vista === "equipo") vistaEquipo(m);
   else if (S.vista === "admin") vistaAdmin(m);
   else if (S.vista === "proyectos") vistaProyectos(m);
