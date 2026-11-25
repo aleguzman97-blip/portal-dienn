@@ -667,7 +667,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${esAsp && puedeEditar && DC_TABLA_OK && PUESTOS_ASP.length ? `<button class="btn sec" id="eSyncDC">Sincronizar DC desde Actual</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -689,6 +689,7 @@ async function vistaEstructura(m) {
   if ($("eFecha")) $("eFecha").onchange = e => { EQ.fecha = e.target.value || hoy; vistaEstructura(m); };
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
   if ($("eMan")) $("eMan").onclick = modalManualesDC;
+  if ($("eSyncDC")) $("eSyncDC").onclick = modalSincronizarDC;
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
   if ($("eCargarAsp")) $("eCargarAsp").onclick = () => cargarAspiracionalPPT($("eErr"));
   m.querySelectorAll("[data-pu]").forEach(b => b.onclick = () => puedeEditar ? modalPuesto(b.dataset.pu, esAsp ? "aspiracional" : "actual") : modalInfoPuesto(b.dataset.pu, aus, lista));
@@ -1061,10 +1062,10 @@ function modalPuesto(id, modo = "actual") {
           <span class="vtag ${dc ? "ok" : "warn"}">${dc ? "Cargada" : "Pendiente"}</span>
         </div>
         <div class="fila" style="margin-top:10px;gap:8px">
-          ${dc && dc.archivo_path ? `<button type="button" class="btn sec" id="dcDesc" style="padding:6px 11px;font-size:12.5px">Descargar Word</button>` : ""}
+          ${dc && dc.archivo_path ? `<button type="button" class="btn sec" id="dcDesc" style="padding:6px 11px;font-size:12.5px">Descargar Word</button><button type="button" class="btn sec" id="dcAplicarOtros" style="padding:6px 11px;font-size:12.5px">Aplicar a otros puestos…</button>` : ""}
           <button type="button" class="btn sec" id="dcSubir" style="padding:6px 11px;font-size:12.5px">${dc ? "Reemplazar Word" : "Subir Word (.doc/.docx)"}</button>
           <button type="button" class="btn" id="dcIA" style="padding:6px 11px;font-size:12.5px;background:var(--accent)">✨ ${dc ? "Pulir con Gemini AI" : "Crear con Gemini AI"}</button>
-          ${dc ? `<button type="button" class="btn peligro" id="dcDel" style="padding:6px 4px;font-size:12.5px;margin-left:auto">Quitar</button>` : ""}
+          ${!dc && esAsp && DC_LISTA.some(x => x.estructura_tipo === "actual") ? `<button type="button" class="btn sec" id="dcCopiarAct" style="padding:6px 11px;font-size:12.5px">Copiar desde Actual</button>` : ""}${dc ? `<button type="button" class="btn peligro" id="dcDel" style="padding:6px 4px;font-size:12.5px;margin-left:auto">Quitar</button>` : ""}
         </div>
         <input type="file" id="dcFile" accept=".doc,.docx,.pdf" hidden>
         <div class="err" id="dcErr" style="margin-top:6px;min-height:0"></div>
@@ -1093,8 +1094,13 @@ function modalPuesto(id, modo = "actual") {
       try {
         await subirArchivoDC(modo, p.id, f);
         await cargarEquipo();
+        let extraMsg = "";
+        if (modo === "actual") {
+          const nCop = await ofrecerReplicarAAspiracional(p);
+          if (nCop > 0) extraMsg = ` (y copiada a ${nCop} puesto${nCop === 1 ? "" : "s"} en Aspiracional)`;
+        }
         modalPuesto(p.id, modo);
-        estado("Descripción de cargo subida");
+        estado("Descripción de cargo subida" + extraMsg);
       } catch (ex) { g("#dcErr").textContent = "No se subió: " + mensajeError(ex); }
     };
   }
@@ -1104,6 +1110,8 @@ function modalPuesto(id, modo = "actual") {
     try { await eliminarDC(modo, p.id); await cargarEquipo(); modalPuesto(p.id, modo); estado("Descripción eliminada"); } catch (ex) { g("#dcErr").textContent = "No se quitó: " + mensajeError(ex); }
   };
   if (g("#dcIA")) g("#dcIA").onclick = () => modalAsistenteDC(p, modo, lista);
+  if (g("#dcCopiarAct")) g("#dcCopiarAct").onclick = () => modalSincronizarDC(p.id);
+  if (g("#dcAplicarOtros")) g("#dcAplicarOtros").onclick = () => modalAplicarDCaOtros(p, modo);
   if (!nuevo) g("#uHijo").onclick = () => { cerrarModal(); modalPuesto(null, modo); setTimeout(() => { const s = document.querySelector("#uR"); if (s) s.value = p.id; }, 0); };
   if (!nuevo) g("#uDel").onclick = async () => {
     const hijos = lista.filter(x => x.reporta_a === p.id).length;
@@ -1190,8 +1198,207 @@ async function descargarArchivoDC(dc, errEl) {
 }
 async function eliminarDC(modo, puestoId) {
   const dc = dcDe(modo, puestoId);
-  if (dc && dc.archivo_path) { try { await sb.storage.from("descripciones_cargo").remove([dc.archivo_path]); } catch (e) { } }
+  const otrosUsan = dc && dc.archivo_path && DC_LISTA.some(x => !(x.estructura_tipo === modo && x.puesto_id === puestoId) && x.archivo_path === dc.archivo_path);
+  if (dc && dc.archivo_path && !otrosUsan) { try { await sb.storage.from("descripciones_cargo").remove([dc.archivo_path]); } catch (e) { } }
   await ok(sb.from("descripciones_cargo").delete().eq("estructura_tipo", modo).eq("puesto_id", puestoId));
+}
+
+/* ---------- Sincronizar Descripciones de Cargo (Actual -> Aspiracional) ---------- */
+const STOP_DC = new Set(["de", "del", "la", "las", "el", "los", "en", "y", "para", "a", "con", "staff", "proyeccion"]);
+function normalizarCargoDC(s) {
+  return limpiar(s)
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/b[1-5]\+?\*?/g, " ")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(w => w && !STOP_DC.has(w))
+    .join(" ");
+}
+function cargosEquivalentes(pA, pB) {
+  if (!pA || !pB) return false;
+  const na = normalizarCargoDC(pA.cargo), nb = normalizarCargoDC(pB.cargo);
+  if (na && nb && na === nb) return true;
+  if (pA.persona_id && pB.persona_id && pA.persona_id === pB.persona_id && pA.nivel_id === pB.nivel_id) return true;
+  if (pA.nivel_id === pB.nivel_id && na && nb) {
+    const ta = na.split(" "), tb = nb.split(" ");
+    const [corto, largo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+    if (corto.length >= 2) {
+      const comunes = corto.filter(w => largo.includes(w)).length;
+      if (comunes / corto.length >= 0.75) return true;
+    }
+  }
+  return false;
+}
+function buscarMatchActualParaAsp(pAsp) {
+  const conDC = PUESTOS.map(p => ({ p, dc: dcDe("actual", p.id) })).filter(x => x.dc);
+  if (!conDC.length) return null;
+  const nAsp = normalizarCargoDC(pAsp.cargo);
+  // 1. Coincidencia exacta de cargo normalizado
+  let hit = conDC.find(x => nAsp && normalizarCargoDC(x.p.cargo) === nAsp);
+  if (hit) return hit;
+  // 2. Misma persona en el mismo nivel
+  if (pAsp.persona_id) {
+    hit = conDC.find(x => x.p.persona_id === pAsp.persona_id && x.p.nivel_id === pAsp.nivel_id);
+    if (hit) return hit;
+  }
+  // 3. Alta similitud de palabras en el mismo nivel
+  hit = conDC.find(x => cargosEquivalentes(x.p, pAsp));
+  return hit || null;
+}
+async function vincularDC(modoDestino, puestoDestinoId, dcOrigen) {
+  const fila = {
+    estructura_tipo: modoDestino,
+    puesto_id: puestoDestinoId,
+    archivo_path: dcOrigen.archivo_path || null,
+    archivo_nombre: dcOrigen.archivo_nombre || null,
+    contenido_json: dcOrigen.contenido_json || null,
+    updated_at: new Date().toISOString()
+  };
+  await ok(sb.from("descripciones_cargo").upsert(fila, { onConflict: "estructura_tipo,puesto_id" }));
+}
+async function ofrecerReplicarAAspiracional(puestoActual) {
+  const dcAct = dcDe("actual", puestoActual.id);
+  if (!dcAct || !PUESTOS_ASP.length) return 0;
+  const dests = PUESTOS_ASP.filter(pa => !dcDe("aspiracional", pa.id) && cargosEquivalentes(puestoActual, pa));
+  if (!dests.length) return 0;
+  const listaTxt = dests.slice(0, 6).map(x => `• ${x.cargo}${titularPuesto(x) ? " (" + titularPuesto(x) + ")" : ""}`).join("\n") + (dests.length > 6 ? `\n… y ${dests.length - 6} más` : "");
+  if (!confirm(`Encontré ${dests.length} puesto${dests.length === 1 ? "" : "s"} equivalente${dests.length === 1 ? "" : "s"} en la Estructura Aspiracional sin descripción:\n\n${listaTxt}\n\n¿Quieres cargar también esta Descripción de Cargo en ${dests.length === 1 ? "ese puesto" : "esos puestos"}?`)) return 0;
+  for (const pa of dests) await vincularDC("aspiracional", pa.id, dcAct);
+  await cargarEquipo();
+  return dests.length;
+}
+function modalAplicarDCaOtros(puestoOrigen, modoOrigen) {
+  const dcOrig = dcDe(modoOrigen, puestoOrigen.id);
+  if (!dcOrig) return;
+  const armarLista = (arr, tipo) => arr
+    .filter(x => !(tipo === modoOrigen && x.id === puestoOrigen.id))
+    .map(x => {
+      const dcEx = dcDe(tipo, x.id);
+      const mismoArch = !!(dcEx && dcEx.archivo_path && dcEx.archivo_path === dcOrig.archivo_path);
+      const equiv = cargosEquivalentes(puestoOrigen, x);
+      return { x, tipo, dcEx, mismoArch, equiv };
+    })
+    .sort((a, b) => (b.equiv ? 1 : 0) - (a.equiv ? 1 : 0) || a.x.cargo.localeCompare(b.x.cargo, "es"));
+
+  const lAct = armarLista(PUESTOS, "actual");
+  const lAsp = armarLista(PUESTOS_ASP, "aspiracional");
+  const bloque = (titulo, items) => !items.length ? "" : `
+    <tr style="background:#f2f4f7"><td colspan="3" style="font-weight:600;font-size:12.5px;color:var(--ink-2)">${titulo}</td></tr>
+    ${items.map(({ x, tipo, dcEx, mismoArch, equiv }) => {
+      const tit = titularPuesto(x);
+      const key = `${tipo}:${x.id}`;
+      const preMarcado = equiv && !dcEx;
+      return `<tr>
+        <td style="width:28px"><input type="checkbox" class="chk" data-apdc="${key}" data-niv="${x.nivel_id || ""}" ${preMarcado ? "checked" : ""}></td>
+        <td><b>${esc(x.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${tit ? esc(tit) : "Vacante"} · ${esc((nivel(x.nivel_id) || {}).nombre || x.nivel_id || "")}</div></td>
+        <td class="num" style="white-space:nowrap">${mismoArch ? `<span class="vtag ok">Ya usa esta DC</span>` : dcEx ? `<span class="vtag warn">Tiene otra DC</span>` : equiv ? `<span class="vtag info">Sugerido</span>` : `<span class="vtag">Sin DC</span>`}</td>
+      </tr>`;
+    }).join("")}`;
+
+  const el = modal(`<h2>Aplicar Descripción a otros puestos</h2>
+    <p class="nota-h">Usa <b>${esc(dcOrig.archivo_nombre || "esta descripción")}</b> (${esc(puestoOrigen.cargo)}) en varios cargos a la vez, por ejemplo todos los Analistas. Te pre-marqué los puestos equivalentes que aún no tienen descripción.</p>
+    <div style="max-height:52vh;overflow:auto"><table class="vmov">
+      ${bloque("Estructura Actual", lAct)}
+      ${bloque("Estructura Aspiracional", lAsp)}
+    </table></div>
+    <div class="err" id="apdcErr"></div>
+    <div class="fila" style="justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn sec" id="apdcMismoNiv" style="padding:7px 11px;font-size:12.5px">Marcar todos los del nivel ${esc((nivel(puestoOrigen.nivel_id) || {}).nombre || puestoOrigen.nivel_id || "")}</button>
+      <span class="fila"><button class="btn sec" id="apdcNo">Cancelar</button><button class="btn" id="apdcOk">Aplicar a seleccionados</button></span>
+    </div>`, 740);
+
+  el.querySelector("#apdcNo").onclick = () => modalPuesto(puestoOrigen.id, modoOrigen);
+  el.querySelector("#apdcMismoNiv").onclick = () => {
+    el.querySelectorAll(`[data-apdc][data-niv="${puestoOrigen.nivel_id || ""}"]`).forEach(c => c.checked = true);
+  };
+  el.querySelector("#apdcOk").onclick = async () => {
+    const elegidos = [...el.querySelectorAll("[data-apdc]:checked")].map(c => {
+      const [tipo, id] = c.dataset.apdc.split(":");
+      return { tipo, id };
+    });
+    if (!elegidos.length) return (el.querySelector("#apdcErr").textContent = "Marca al menos un puesto.");
+    el.querySelector("#apdcOk").setAttribute("aria-disabled", "true");
+    el.querySelector("#apdcErr").textContent = `Aplicando en ${elegidos.length} puesto(s)…`;
+    try {
+      for (const e of elegidos) await vincularDC(e.tipo, e.id, dcOrig);
+      await cargarEquipo();
+      cerrarModal();
+      modalPuesto(puestoOrigen.id, modoOrigen);
+      estado(`Descripción aplicada a ${elegidos.length} puesto${elegidos.length === 1 ? "" : "s"}`);
+    } catch (ex) {
+      el.querySelector("#apdcOk").removeAttribute("aria-disabled");
+      el.querySelector("#apdcErr").textContent = "No se completó: " + mensajeError(ex);
+    }
+  };
+}
+function modalSincronizarDC(soloPuestoAspId = null) {
+  const fuentes = PUESTOS.map(p => ({ p, dc: dcDe("actual", p.id) })).filter(x => x.dc);
+  if (!fuentes.length) {
+    modal(`<h2>Sincronizar Descripciones desde Actual</h2><p class="nota-h">Aún no hay Descripciones de Cargo cargadas en la Estructura Actual.</p><div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" onclick="cerrarModal()">Cerrar</button></div>`, 480);
+    return;
+  }
+  // Agrupar fuentes únicas por archivo_path para el selector manual
+  const fuentesUnicas = [];
+  const vistosPath = new Set();
+  fuentes.forEach(x => {
+    const k = x.dc.archivo_path || x.dc.id;
+    if (!vistosPath.has(k)) { vistosPath.add(k); fuentesUnicas.push(x); }
+  });
+  const objetivos = (soloPuestoAspId ? PUESTOS_ASP.filter(p => p.id === soloPuestoAspId) : PUESTOS_ASP.filter(p => !dcDe("aspiracional", p.id)))
+    .map(p => ({ p, match: buscarMatchActualParaAsp(p) }))
+    .sort((a, b) => (b.match ? 1 : 0) - (a.match ? 1 : 0) || a.p.cargo.localeCompare(b.p.cargo, "es"));
+
+  const nAuto = objetivos.filter(o => o.match).length;
+  const el = modal(`<h2>Sincronizar Descripciones desde Actual</h2>
+    <p class="nota-h">${soloPuestoAspId ? "Elige la Descripción de Cargo de la Estructura Actual que quieres copiar a este puesto." : `Detecté <b>${nAuto}</b> coincidencia${nAuto === 1 ? "" : "s"} automática${nAuto === 1 ? "" : "s"} entre los puestos sin descripción de la Aspiracional y las que ya cargaste en la Actual. Puedes ajustar o elegir manualmente cualquier otra.`}</p>
+    ${!objetivos.length ? `<p class="vacio">¡Todos los puestos de la Estructura Aspiracional ya tienen Descripción de Cargo!</p><div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="syNo">Cerrar</button></div>`
+    : `<div style="max-height:52vh;overflow:auto"><table class="vmov">
+        <tr><th style="width:28px"></th><th>Puesto en Aspiracional</th><th>Descripción a copiar (desde Actual)</th></tr>
+        ${objetivos.map(({ p, match }) => {
+          const tit = titularPuesto(p);
+          const selVal = match ? match.p.id : "";
+          return `<tr>
+            <td><input type="checkbox" class="chk" data-syc="${p.id}" ${match ? "checked" : ""}></td>
+            <td><b>${esc(p.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${tit ? esc(tit) : "Vacante"}</div></td>
+            <td><select data-sys="${p.id}" style="padding:6px 8px;font-size:12.5px">
+              <option value="">— No copiar —</option>
+              ${fuentesUnicas.map(f => `<option value="${f.p.id}" ${f.p.id === selVal || (match && f.dc.archivo_path === match.dc.archivo_path) ? "selected" : ""}>${esc(f.p.cargo)} (${esc(f.dc.archivo_nombre || "Word")})</option>`).join("")}
+            </select></td></tr>`;
+        }).join("")}
+      </table></div>
+      <div class="err" id="syErr"></div>
+      <div class="fila" style="justify-content:space-between;margin-top:14px">
+        <span style="font-size:12.5px;color:var(--ink-3)">Si luego reemplazas el Word en Aspiracional, no afecta la Actual.</span>
+        <span class="fila"><button class="btn sec" id="syNo">Cancelar</button><button class="btn" id="syOk">Copiar seleccionadas</button></span>
+      </div>`}`, 760);
+
+  el.querySelector("#syNo").onclick = () => soloPuestoAspId ? modalPuesto(soloPuestoAspId, "aspiracional") : cerrarModal();
+  el.querySelectorAll("[data-sys]").forEach(s => s.onchange = () => {
+    const chk = el.querySelector(`[data-syc="${s.dataset.sys}"]`);
+    if (chk) chk.checked = !!s.value;
+  });
+  if (el.querySelector("#syOk")) el.querySelector("#syOk").onclick = async () => {
+    const tareas = [];
+    el.querySelectorAll("[data-syc]:checked").forEach(c => {
+      const pidAsp = c.dataset.syc, pidAct = el.querySelector(`[data-sys="${pidAsp}"]`).value;
+      const dcOrig = pidAct ? dcDe("actual", pidAct) : null;
+      if (dcOrig) tareas.push({ pidAsp, dcOrig });
+    });
+    if (!tareas.length) return (el.querySelector("#syErr").textContent = "Marca al menos un puesto con una descripción elegida.");
+    el.querySelector("#syOk").setAttribute("aria-disabled", "true");
+    el.querySelector("#syErr").textContent = `Copiando ${tareas.length} descripción(es)…`;
+    try {
+      for (const t of tareas) await vincularDC("aspiracional", t.pidAsp, t.dcOrig);
+      await cargarEquipo();
+      cerrarModal();
+      if (soloPuestoAspId) modalPuesto(soloPuestoAspId, "aspiracional");
+      else vistaEstructura($("main"));
+      estado(`${tareas.length} descripción${tareas.length === 1 ? "" : "es"} copiada${tareas.length === 1 ? "" : "s"} a Aspiracional`);
+    } catch (e) {
+      el.querySelector("#syOk").removeAttribute("aria-disabled");
+      el.querySelector("#syErr").textContent = "No se completó: " + mensajeError(e);
+    }
+  };
 }
 
 /* ---------- Biblioteca de Manuales (editable en vivo) ---------- */
@@ -1379,6 +1586,7 @@ function modalAsistenteDC(puesto, modo, lista) {
         const file = new File([blob], nombreArch, { type: "application/msword" });
         await subirArchivoDC(modo, puesto.id, file, data.doc);
         await cargarEquipo();
+        if (modo === "actual") await ofrecerReplicarAAspiracional(puesto);
         // Descargar copia local también
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a"); a.href = url; a.download = nombreArch; a.click();
