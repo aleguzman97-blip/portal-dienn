@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
   :root{
     --ink:#14213d; --ink-2:#4a5672; --ink-3:#8790a5;
@@ -679,7 +680,7 @@ async function vistaEstructura(m) {
       <div class="fila no-print" style="margin-bottom:14px">
         ${!esAsp ? `<label class="fila" style="gap:6px;font-size:13px;color:var(--ink-2)">Ver al día <input type="date" id="eFecha" value="${EQ.fecha}" style="border:1px solid #cbd2de;border-radius:7px;padding:7px 9px;background:#fff"></label>` : ""}
         ${!esAsp && soyAdmin() ? `<button class="btn sec" id="eNiv">Niveles y permisos</button>` : ""}
-        ${lista.length ? `<button class="btn sec" id="eChatBtn" style="${EQ.chatOpen ? "background:var(--accent);color:#fff;border-color:var(--accent)" : "color:var(--accent);border-color:var(--accent)"}">✨ Chat estratégico</button>` : ""}${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Matriz Actual ↔ Aspiracional</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
+        ${lista.length ? `<button class="btn sec" id="ePdf">PDF</button><button class="btn sec" id="ePptx">PPTX</button><button class="btn sec" id="eChatBtn" style="${EQ.chatOpen ? "background:var(--accent);color:#fff;border-color:var(--accent)" : "color:var(--accent);border-color:var(--accent)"}">✨ Chat estratégico</button>` : ""}${puedeEditar && DC_TABLA_OK && PUESTOS.length && PUESTOS_ASP.length ? `<button class="btn sec" id="eHomologar">Matriz Actual ↔ Aspiracional</button>` : ""}${puedeEditar && DC_TABLA_OK ? `<button class="btn sec" id="eMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>` : ""}${puedeEditar && (!esAsp || ASP_TABLA_OK) ? `<button class="btn" id="eNuevo">+ Agregar puesto</button>` : ""}</div></div>
     ${pestanasHTML}
     ${esAsp && !ASP_TABLA_OK ? `<div class="panel" style="max-width:720px"><h2>Falta activar la tabla en Supabase</h2><p class="nota-h">Ejecuta una sola vez el archivo <b>supabase_estructura_3_pestanas.sql</b> en el SQL Editor de Supabase y recarga esta página.</p></div>`
       : !lista.length ? `<div class="panel" style="max-width:720px"><h2>Aún no hay estructura ${esAsp ? "aspiracional " : ""}cargada</h2>
@@ -707,6 +708,7 @@ async function vistaEstructura(m) {
           <div class="sim-chat-log" id="sChatLog"></div>
           <div class="sim-chips" id="sChatChips">
             <button type="button" class="sim-chip" data-sq="Evalúa la congruencia de esta estructura: tramos de control, niveles, vacantes y posibles sobrecargas.">Congruencia</button>
+            <button type="button" class="sim-chip" data-sq="Valora los cargos clave de esta estructura usando nuestra metodología (Bandas B5–B1 / Grados G13–G26) y dime qué puestos tienen brechas de nivel.">Valorar cargos (G13–G26)</button>
             <button type="button" class="sim-chip" data-sq="Compara la Estructura Actual vs. la Aspiracional: qué brechas, saltos de nivel o duplicidades detectas.">Actual vs. Aspiracional</button>
             <button type="button" class="sim-chip" data-sq="¿Qué ajustes o posiciones adicionales recomendarías evaluar? Pregúntame antes de proponer cambios para llevarlos a una simulación.">Sugerir cambios</button>
           </div>
@@ -724,6 +726,17 @@ async function vistaEstructura(m) {
   if ($("eNiv")) $("eNiv").onclick = modalNiveles;
   if ($("eMan")) $("eMan").onclick = modalManualesDC;
   if ($("eHomologar")) $("eHomologar").onclick = () => modalMatrizCorrespondencia();
+  if ($("ePdf")) $("ePdf").onclick = () => exportarEstructuraPDF(
+    esAsp ? "Estructura Aspiracional · DIENN" : "Estructura Actual · DIENN",
+    esAsp ? `Proyección organizacional · Generado el ${dTxt(hoy)}` : `Vigente al ${dTxt(EQ.fecha)} · Generado el ${dTxt(hoy)}`,
+    esAsp ? "aspiracional" : "actual"
+  );
+  if ($("ePptx")) $("ePptx").onclick = () => exportarEstructuraPPTX(
+    esAsp ? "Estructura Aspiracional · DIENN" : "Estructura Actual · DIENN",
+    esAsp ? `Proyección organizacional · ${dTxt(hoy)}` : `Vigente al ${dTxt(EQ.fecha)}`,
+    lista,
+    esAsp ? "aspiracional" : "actual"
+  );
   if ($("eChatBtn")) $("eChatBtn").onclick = () => { EQ.chatOpen = !EQ.chatOpen; EQ.zoom = null; vistaEstructura(m); };
   if (EQ.chatOpen && lista.length) iniciarChatEstructura(esAsp ? "aspiracional" : "actual", true);
   if ($("eNuevo")) $("eNuevo").onclick = () => modalPuesto(null, esAsp ? "aspiracional" : "actual");
@@ -908,7 +921,7 @@ function modalAplicarSim() {
   el.querySelector("#apAct").onclick = () => aplicar("actual");
   el.querySelector("#apAsp").onclick = () => aplicar("aspiracional");
 }
-async function exportarSimPDF() {
+async function exportarEstructuraPDF(titulo, subtitulo, slugBase) {
   const oc = $("oc"); if (!oc) return;
   if (!window.html2canvas || !window.jspdf) { window.print(); return; }
   estado("Generando PDF…");
@@ -922,19 +935,119 @@ async function exportarSimPDF() {
     const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
     const margin = 28;
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.setTextColor(20, 33, 61);
-    pdf.text(SIM.titulo || "Simulación de Estructura · DIENN", margin, 30);
+    pdf.text(titulo || "Estructura · DIENN", margin, 30);
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5); pdf.setTextColor(100, 110, 130);
-    pdf.text(`Confidencial · Generado el ${dTxt(dHoy())}`, margin, 44);
+    pdf.text(subtitulo || `Generado el ${dTxt(dHoy())}`, margin, 44);
     const maxW = pw - margin * 2, maxH = ph - 72;
     const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
     const w = canvas.width * ratio, h = canvas.height * ratio;
     pdf.addImage(imgData, "PNG", margin + (maxW - w) / 2, 56, w, h);
-    const slug = limpiar(SIM.titulo || "simulacion").replace(/[^a-z0-9]+/g, "_").slice(0, 40) || "simulacion";
+    const slug = limpiar(slugBase || "estructura").replace(/[^a-z0-9]+/g, "_").slice(0, 40) || "estructura";
     pdf.save(`Estructura_${slug}_${dHoy()}.pdf`);
     estado("PDF descargado");
   } catch (e) {
     estado("Error al generar PDF", true);
     alert("No se pudo generar el PDF automáticamente. Puedes usar Ctrl+P para imprimir a PDF.");
+  } finally {
+    oc.style.zoom = prevZoom;
+  }
+}
+
+async function exportarEstructuraPPTX(titulo, subtitulo, lista, slugBase) {
+  const oc = $("oc"); if (!oc) return;
+  if (!window.PptxGenJS || !window.html2canvas) {
+    alert("No cargó la librería de PowerPoint. Recarga la página e intenta de nuevo.");
+    return;
+  }
+  estado("Generando PowerPoint (.pptx)…");
+  const prevZoom = oc.style.zoom;
+  oc.style.zoom = 1;
+  try {
+    const canvas = await window.html2canvas(oc, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+    const imgData = canvas.toDataURL("image/png");
+    const pptx = new window.PptxGenJS();
+    pptx.layout = "LAYOUT_WIDE"; // 13.333 x 7.5 pulgadas
+    pptx.author = CONFIG.NOMBRE;
+    pptx.title = titulo || "Estructura DIENN";
+
+    // Lámina 1: Organigrama visual + KPIs nativos editables
+    const s1 = pptx.addSlide();
+    s1.background = { color: "FFFFFF" };
+    s1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 0.85, fill: { color: "14213D" }, line: { type: "none" } });
+    s1.addText(titulo || "Estructura · DIENN", { x: 0.45, y: 0.14, w: 8.5, h: 0.34, fontSize: 18, bold: true, color: "FFFFFF", fontFace: "Calibri" });
+    s1.addText(subtitulo || dTxt(dHoy()), { x: 0.45, y: 0.48, w: 8.5, h: 0.24, fontSize: 10, color: "B9C2D6", fontFace: "Calibri" });
+
+    const arr = Array.isArray(lista) ? lista : [];
+    const cub = arr.filter(p => titularPuesto(p)).length;
+    const vac = arr.length - cub;
+    const kpis = [
+      { l: "Puestos", v: String(arr.length), c: "FFFFFF" },
+      { l: "Cubiertos", v: String(cub), c: "A7F3D0" },
+      { l: "Vacantes", v: String(vac), c: vac ? "FDE68A" : "FFFFFF" }
+    ];
+    kpis.forEach((k, idx) => {
+      const kx = 9.35 + idx * 1.25;
+      s1.addText(k.v, { x: kx, y: 0.12, w: 1.15, h: 0.36, fontSize: 18, bold: true, color: k.c, align: "center", fontFace: "Calibri" });
+      s1.addText(k.l, { x: kx, y: 0.48, w: 1.15, h: 0.24, fontSize: 9.5, color: "B9C2D6", align: "center", fontFace: "Calibri" });
+    });
+
+    const maxW = 12.6, maxH = 6.2;
+    const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+    const iw = canvas.width * ratio, ih = canvas.height * ratio;
+    s1.addImage({ data: imgData, x: (13.333 - iw) / 2, y: 1.0 + (maxH - ih) / 2, w: iw, h: ih });
+    s1.addText(`${CONFIG.NOMBRE} · Generado el ${dTxt(dHoy())}`, { x: 0.45, y: 7.22, w: 12.4, h: 0.2, fontSize: 8.5, color: "8790A5", align: "right", fontFace: "Calibri" });
+
+    // Láminas siguientes: Tabla nativa editable con el detalle de puestos
+    if (arr.length) {
+      const ordenados = [...arr].sort((a, b) =>
+        ((nivel(a.nivel_id) || {}).orden || 99) - ((nivel(b.nivel_id) || {}).orden || 99) ||
+        a.cargo.localeCompare(b.cargo, "es")
+      );
+      const porPagina = 14;
+      const totalPags = Math.ceil(ordenados.length / porPagina);
+      for (let pg = 0; pg < totalPags; pg++) {
+        const sl = pptx.addSlide();
+        sl.background = { color: "FFFFFF" };
+        sl.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.333, h: 0.65, fill: { color: "14213D" }, line: { type: "none" } });
+        sl.addText(`${titulo} · Detalle de puestos${totalPags > 1 ? ` (${pg + 1}/${totalPags})` : ""}`, { x: 0.45, y: 0.16, w: 12.4, h: 0.34, fontSize: 15, bold: true, color: "FFFFFF", fontFace: "Calibri" });
+
+        const filas = [[
+          { text: "Cargo", options: { bold: true, color: "FFFFFF", fill: { color: "2A55D0" } } },
+          { text: "Nivel", options: { bold: true, color: "FFFFFF", fill: { color: "2A55D0" } } },
+          { text: "Ocupado por", options: { bold: true, color: "FFFFFF", fill: { color: "2A55D0" } } },
+          { text: "Reporta a", options: { bold: true, color: "FFFFFF", fill: { color: "2A55D0" } } },
+          { text: "Estatus", options: { bold: true, color: "FFFFFF", fill: { color: "2A55D0" } } }
+        ]];
+        ordenados.slice(pg * porPagina, (pg + 1) * porPagina).forEach((p, idx) => {
+          const tit = titularPuesto(p);
+          const jefe = arr.find(x => x.id === p.reporta_a);
+          const nv = (nivel(p.nivel_id) || {}).nombre || p.nivel_id || "—";
+          const est = tit ? "Cubierto" : (p.encargado_id ? `Encargado: ${nombreDe(p.encargado_id)}` : (p.en_proceso ? "Vacante (en proceso)" : "Vacante"));
+          const bg = idx % 2 === 1 ? "F6F8FB" : "FFFFFF";
+          filas.push([
+            { text: p.cargo || "—", options: { fill: { color: bg }, bold: true, color: "14213D" } },
+            { text: nv, options: { fill: { color: bg }, color: "4A5672" } },
+            { text: tit || "Vacante", options: { fill: { color: bg }, italic: !tit, color: tit ? "14213D" : "8790A5" } },
+            { text: jefe ? `${jefe.cargo}${titularPuesto(jefe) ? " (" + titularPuesto(jefe) + ")" : ""}` : "Dirección superior", options: { fill: { color: bg }, color: "4A5672" } },
+            { text: est, options: { fill: { color: bg }, color: tit ? "0F7B5F" : "A8720A" } }
+          ]);
+        });
+        sl.addTable(filas, {
+          x: 0.45, y: 0.85, w: 12.43,
+          colW: [3.6, 1.7, 2.3, 3.23, 1.6],
+          fontSize: 9.5, fontFace: "Calibri",
+          border: { pt: 0.5, color: "DDE2EA" },
+          valign: "middle", margin: [4, 6, 4, 6]
+        });
+      }
+    }
+
+    const slug = limpiar(slugBase || "estructura").replace(/[^a-z0-9]+/g, "_").slice(0, 40) || "estructura";
+    await pptx.writeFile({ fileName: `Estructura_${slug}_${dHoy()}.pptx` });
+    estado("PowerPoint (.pptx) descargado");
+  } catch (e) {
+    estado("Error al generar PPTX", true);
+    alert("No se pudo generar el PowerPoint: " + (e.message || e));
   } finally {
     oc.style.zoom = prevZoom;
   }
@@ -1012,7 +1125,8 @@ function vistaSimulador(m, pestanasHTML) {
       <div class="fila no-print" style="margin-bottom:14px">
         <button class="btn sec" id="sVolver">← Volver</button>
         <button class="btn sec" id="sChatBtn" style="${SIM.chatOpen ? "background:var(--accent);color:#fff;border-color:var(--accent)" : "color:var(--accent);border-color:var(--accent)"}">✨ Chat estratégico</button>
-        <button class="btn sec" id="sPdf">Descargar PDF</button>
+        <button class="btn sec" id="sPdf">PDF</button>
+        <button class="btn sec" id="sPptx">PPTX</button>
         ${!puedeEd ? `<button class="btn" id="sCopia">Guardar copia propia</button>` : `
           ${esDueno ? `<button class="btn sec" id="sComp">Compartir</button>` : ""}
           <button class="btn sec" id="sAplicar">Sustituir Actual / Asp.</button>
@@ -1048,6 +1162,7 @@ function vistaSimulador(m, pestanasHTML) {
         <div class="sim-chips" id="sChatChips">
           <button type="button" class="sim-chip" data-sq="Analiza los tramos de control y posibles sobrecargas en esta estructura simulada.">Tramos de control</button>
           <button type="button" class="sim-chip" data-sq="Compara esta simulación con la estructura actual y la aspiracional: qué brechas ves y qué roles hacen de más o de menos.">Brechas y roles</button>
+          <button type="button" class="sim-chip" data-sq="Valora los cargos de esta simulación según nuestra metodología (Bandas B5–B1 / Grados G13–G26) e indica qué faltaría para justificar el siguiente nivel en los roles clave.">Valorar cargos (G13–G26)</button>
           <button type="button" class="sim-chip" data-sq="¿Qué posiciones adicionales recomendarías evaluar para esta estructura? Pregúntame antes de agregarlas.">Sugerir puestos</button>
         </div>
         <div class="fila" style="flex-wrap:nowrap;gap:6px">
@@ -1060,7 +1175,17 @@ function vistaSimulador(m, pestanasHTML) {
 
   enlazarTabsEstructura(m);
   $("sVolver").onclick = cerrarSimulador;
-  $("sPdf").onclick = exportarSimPDF;
+  $("sPdf").onclick = () => exportarEstructuraPDF(
+    SIM.titulo || "Simulación de Estructura · DIENN",
+    `Confidencial · Generado el ${dTxt(dHoy())}`,
+    SIM.titulo || "simulacion"
+  );
+  $("sPptx").onclick = () => exportarEstructuraPPTX(
+    SIM.titulo || "Simulación de Estructura · DIENN",
+    `Confidencial · Simulación · ${dTxt(dHoy())}`,
+    SIM.puestos,
+    SIM.titulo || "simulacion"
+  );
   $("sChatBtn").onclick = () => { SIM.chatOpen = !SIM.chatOpen; EQ.zoom = null; vistaEstructura(m); };
   if (SIM.chatOpen) iniciarChatEstructura("simulador", puedeEd);
   if ($("sTit")) $("sTit").oninput = e => { SIM.titulo = e.target.value; SIM.sucio = true; };
