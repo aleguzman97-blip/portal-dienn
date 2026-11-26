@@ -2277,8 +2277,9 @@ function modalManualesDC(editId = null) {
 /* ---------- Generador de Word (.doc) con formato oficial Empresas Polar ---------- */
 function construirWordPolar(d) {
   const hoy = dHoy(), mesVig = `${MESES[+hoy.slice(5, 7) - 1]} ${hoy.slice(0, 4)}`.replace(/^./, c => c.toUpperCase());
-  const ol = arr => (Array.isArray(arr) && arr.length) ? `<ol style="margin:4pt 0 8pt 18pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:3pt">${esc(x)}</li>`).join("")}</ol>` : `<p style="color:#666;margin:4pt 0">N/A</p>`;
-  const ul = arr => (Array.isArray(arr) && arr.length) ? `<ul style="margin:4pt 0 4pt 16pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:2pt">${esc(x)}</li>`).join("")}</ul>` : `<p style="color:#666;margin:2pt 0">N/A</p>`;
+  const limpiarItem = x => String(x == null ? "" : x).trim().replace(/^(?:(?:\d+[\.\)\-]\s*)+|[•\-\*]\s+)/, "").trim();
+  const ol = arr => (Array.isArray(arr) && arr.length) ? `<ol style="margin:4pt 0 8pt 18pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:3pt">${esc(limpiarItem(x))}</li>`).join("")}</ol>` : `<p style="color:#666;margin:4pt 0">N/A</p>`;
+  const ul = arr => (Array.isArray(arr) && arr.length) ? `<ul style="margin:4pt 0 4pt 16pt;padding:0;color:#004a99">${arr.map(x => `<li style="margin-bottom:2pt">${esc(limpiarItem(x))}</li>`).join("")}</ul>` : `<p style="color:#666;margin:2pt 0">N/A</p>`;
   const filasInt = (arr, tit) => `<tr><td colspan="3" style="background:#f2f4f7;font-weight:bold;padding:5pt;border:1px solid #333">${tit}</td></tr>` +
     ((Array.isArray(arr) && arr.length) ? arr.map(r => `<tr><td style="border:1px solid #333;padding:5pt;font-weight:bold;width:28%">${esc(r.area || "")}</td><td style="border:1px solid #333;padding:5pt;color:#004a99;width:44%">${esc(r.finalidad || "")}</td><td style="border:1px solid #333;padding:5pt;color:#004a99;width:28%">${esc(r.alcance || "")}</td></tr>`).join("") : `<tr><td colspan="3" style="border:1px solid #333;padding:5pt;color:#666">N/A</td></tr>`);
 
@@ -2485,7 +2486,7 @@ async function leerTextoWord(fileOrBlob, nombre = "") {
 
 function formatearJsonDCaTexto(d) {
   if (!d) return "";
-  const l = arr => Array.isArray(arr) && arr.length ? arr.map((x, i) => `${i + 1}. ${x}`).join("\n") : "N/A";
+  const l = arr => Array.isArray(arr) && arr.length ? arr.map((x, i) => `${i + 1}. ${String(x == null ? "" : x).trim().replace(/^(?:(?:\d+[\.\)\-]\s*)+|[•\-\*]\s+)/, "").trim()}`).join("\n") : "N/A";
   const inter = arr => Array.isArray(arr) && arr.length ? arr.map(r => `- ${r.area}: ${r.finalidad} (${r.alcance})`).join("\n") : "N/A";
   return `DENOMINACIÓN: ${d.denominacion || ""}
 DIRECCIÓN: ${d.direccion_gerencia || ""}
