@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <style>
   :root{
     --ink:#14213d; --ink-2:#4a5672; --ink-3:#8790a5;
@@ -711,6 +712,7 @@ async function vistaEstructura(m) {
             <button type="button" class="sim-chip" data-sq="Valora los cargos clave de esta estructura usando nuestra metodología (Bandas B5–B1 / Grados G13–G26) y dime qué puestos tienen brechas de nivel.">Valorar cargos (G13–G26)</button>
             <button type="button" class="sim-chip" data-sq="Compara la Estructura Actual vs. la Aspiracional: qué brechas, saltos de nivel o duplicidades detectas.">Actual vs. Aspiracional</button>
             <button type="button" class="sim-chip" data-sq="¿Qué ajustes o posiciones adicionales recomendarías evaluar? Pregúntame antes de proponer cambios para llevarlos a una simulación.">Sugerir cambios</button>
+            <button type="button" class="sim-chip" id="sChatWordBtn" style="background:#e1f2ec;color:var(--ok);font-weight:500">📄 Generar Word de este chat</button>
           </div>
           <div class="fila" style="flex-wrap:nowrap;gap:6px">
             <input type="text" id="sChatIn" placeholder="Evalúa congruencia o plantea ideas…" style="padding:8px 10px;font-size:13px">
@@ -1164,6 +1166,7 @@ function vistaSimulador(m, pestanasHTML) {
           <button type="button" class="sim-chip" data-sq="Compara esta simulación con la estructura actual y la aspiracional: qué brechas ves y qué roles hacen de más o de menos.">Brechas y roles</button>
           <button type="button" class="sim-chip" data-sq="Valora los cargos de esta simulación según nuestra metodología (Bandas B5–B1 / Grados G13–G26) e indica qué faltaría para justificar el siguiente nivel en los roles clave.">Valorar cargos (G13–G26)</button>
           <button type="button" class="sim-chip" data-sq="¿Qué posiciones adicionales recomendarías evaluar para esta estructura? Pregúntame antes de agregarlas.">Sugerir puestos</button>
+          <button type="button" class="sim-chip" id="sChatWordBtn" style="background:#e1f2ec;color:var(--ok);font-weight:500">📄 Generar Word de este chat</button>
         </div>
         <div class="fila" style="flex-wrap:nowrap;gap:6px">
           <input type="text" id="sChatIn" placeholder="Pregunta o plantea un escenario…" style="padding:8px 10px;font-size:13px">
@@ -1715,7 +1718,8 @@ function iniciarChatEstructura(modo, puedeEd) {
       if (m.role === "user") return `<div class="dc-msg u">${esc(m.text)}</div>`;
       const { limpio, prop } = extraerPropuesta(m.text);
       const btnTxt = esSim ? "＋ Agregar este puesto al simulador" : "🚀 Crear simulación y agregar este puesto";
-      return `<div class="dc-msg m">${esc(limpio)}${prop && puedeEd ? `<div class="sim-sug-card"><b>Propuesta de puesto:</b> ${esc(prop.cargo || "")} (${esc(prop.nivel_id || "B4")})${prop.reporta_a_cargo ? `<br><span style="color:var(--ink-2)">Reporta a: ${esc(prop.reporta_a_cargo)}</span>` : ""}<div style="margin-top:7px"><button type="button" class="btn" style="padding:5px 10px;font-size:12px;background:var(--ok)" data-saddp="${idx}">${btnTxt}</button></div></div>` : ""}</div>`;
+      const wordCard = m.wordDoc ? `<div class="sim-sug-card" style="background:#edf7f3;border-color:#b8e0d2"><b>📄 ${esc(m.wordNombre || "Descripcion_de_Cargo.doc")}</b><div class="fila" style="margin-top:7px;gap:6px"><button type="button" class="btn sec" style="padding:4px 9px;font-size:11.5px" data-swdl="${idx}">Descargar Word</button><button type="button" class="btn sec" style="padding:4px 9px;font-size:11.5px" data-swalojar="${idx}">Alojar en puesto…</button><button type="button" class="btn" style="padding:4px 9px;font-size:11.5px;background:var(--ok)" data-swsim="${idx}">＋ Crear caja en simulador</button></div></div>` : "";
+      return `<div class="dc-msg m">${esc(limpio)}${wordCard}${prop && puedeEd ? `<div class="sim-sug-card"><b>Propuesta de puesto:</b> ${esc(prop.cargo || "")} (${esc(prop.nivel_id || "B4")})${prop.reporta_a_cargo ? `<br><span style="color:var(--ink-2)">Reporta a: ${esc(prop.reporta_a_cargo)}</span>` : ""}<div class="fila" style="margin-top:7px;gap:6px"><button type="button" class="btn" style="padding:5px 10px;font-size:12px;background:var(--ok)" data-saddp="${idx}">${btnTxt}</button><button type="button" class="btn sec" style="padding:5px 10px;font-size:12px" data-swprop="${idx}">📄 Generar Word</button></div></div>` : ""}</div>`;
     }).join("");
     log.scrollTop = log.scrollHeight;
     log.querySelectorAll("[data-saddp]").forEach(b => b.onclick = () => {
@@ -1733,6 +1737,34 @@ function iniciarChatEstructura(modo, puedeEd) {
       });
       SIM.sucio = true;
       estado(`Puesto “${prop.cargo}” agregado al simulador`);
+      vistaEstructura($("main"));
+    });
+    log.querySelectorAll("[data-swprop]").forEach(b => b.onclick = () => {
+      const m = getMsgs()[+b.dataset.swprop]; if (!m) return;
+      const { prop } = extraerPropuesta(m.text);
+      generarWordDesdeChat(prop && prop.cargo ? prop.cargo : "");
+    });
+    log.querySelectorAll("[data-swdl]").forEach(b => b.onclick = () => {
+      const m = getMsgs()[+b.dataset.swdl]; if (!m || !m.wordDoc) return;
+      const blob = construirWordPolar(m.wordDoc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = m.wordNombre || "Descripcion_de_Cargo.doc"; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    });
+    log.querySelectorAll("[data-swalojar]").forEach(b => b.onclick = () => {
+      const m = getMsgs()[+b.dataset.swalojar]; if (!m || !m.wordDoc) return;
+      const blob = construirWordPolar(m.wordDoc);
+      const file = new File([blob], m.wordNombre || "Descripcion_de_Cargo.doc", { type: "application/msword" });
+      modalAlojarWordEnPuesto(file, m.wordDoc);
+    });
+    log.querySelectorAll("[data-swsim]").forEach(b => b.onclick = () => {
+      const m = getMsgs()[+b.dataset.swsim]; if (!m || !m.wordDoc) return;
+      const prop = { cargo: m.wordDoc.denominacion || "Nuevo cargo", nivel_id: "B4", reporta_a_cargo: m.wordDoc.supervisor_inmediato || "", en_proceso: true };
+      if (!esSim) { llevarConversacionASimulacion(modo, prop); return; }
+      const jefe = prop.reporta_a_cargo ? SIM.puestos.find(x => limpiar(x.cargo).includes(limpiar(prop.reporta_a_cargo)) || limpiar(prop.reporta_a_cargo).includes(limpiar(x.cargo))) : null;
+      SIM.puestos.push({ id: uuid(), cargo: texto(prop.cargo), nivel_id: "B4", reporta_a: jefe ? jefe.id : null, persona_id: null, nombre_libre: null, en_proceso: true, orden: SIM.puestos.length, encargado_id: null, supervisor_interino_id: null });
+      SIM.sucio = true;
+      estado(`Caja “${prop.cargo}” creada en el simulador`);
       vistaEstructura($("main"));
     });
   };
@@ -1767,6 +1799,45 @@ function iniciarChatEstructura(modo, puedeEd) {
       if (sendBtn.isConnected) sendBtn.removeAttribute("aria-disabled");
     }
   }
+  async function generarWordDesdeChat(cargoSugerido = "") {
+    const msgs = getMsgs();
+    if (!msgs.length) { err.textContent = "Primero conversa sobre el cargo que quieres redactar."; return; }
+    const nombreCargo = cargoSugerido || prompt("¿Qué denominación de cargo llevará este Word?", "") || "";
+    if (!nombreCargo) return;
+    err.textContent = "Generando Word oficial (.doc) con Gemini…";
+    sendBtn.setAttribute("aria-disabled", "true");
+    try {
+      const { data, error } = await sb.functions.invoke("descripcion-ia", {
+        body: {
+          accion: "generar",
+          puesto: { cargo: nombreCargo, nivel: "", estructura: modo, supervisor: "Dirección de Innovación, Estrategia y Nuevos Negocios", reportes: "N/A" },
+          mensajes: msgs
+        }
+      });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "No se pudo generar el Word.");
+      err.textContent = "";
+      const blob = construirWordPolar(data.doc);
+      const nombreArch = `DC_${limpiar(data.doc.denominacion || nombreCargo).replace(/[^a-z0-9]+/g, "_").slice(0, 45)}.doc`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = nombreArch; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      msgs.push({
+        role: "model",
+        text: `✅ Aquí tienes el Word oficial generado: **${nombreArch}** (ya se descargó a tu equipo). Puedes editarlo localmente y subirlo luego, o crear la caja en el simulador.`,
+        wordDoc: data.doc,
+        wordNombre: nombreArch
+      });
+      pintarLog();
+      estado("Word oficial descargado");
+    } catch (e) {
+      err.textContent = e.message || String(e);
+    } finally {
+      if (sendBtn.isConnected) sendBtn.removeAttribute("aria-disabled");
+    }
+  }
+  if ($("sChatWordBtn")) $("sChatWordBtn").onclick = () => generarWordDesdeChat();
   sendBtn.onclick = () => enviar();
   inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); enviar(); } };
   $("sChatChips").onclick = e => { const b = e.target.closest("[data-sq]"); if (b) enviar(b.dataset.sq); };
@@ -2374,6 +2445,464 @@ function modalAsistenteDC(puesto, modo, lista) {
   llamarIA("chat");
 }
 
+/* =====================================================================
+   MÓDULO DEDICADO: DESCRIPCIONES DE CARGO (Inventario + Laboratorio IA)
+   ===================================================================== */
+const DCLAB = {
+  tab: "inventario",
+  filtro: "todos",
+  busq: "",
+  cargo: "",
+  nivel: "B4",
+  bandaObj: "",
+  origenTipo: null,
+  origenPuestoId: null,
+  archivoNombre: "",
+  textoBase: "",
+  msgs: [],
+  ultimoDoc: null,
+  ultimoFile: null
+};
+
+async function leerTextoWord(fileOrBlob, nombre = "") {
+  const nom = (nombre || fileOrBlob.name || "").toLowerCase();
+  if (nom.endsWith(".docx") && window.mammoth) {
+    const ab = await fileOrBlob.arrayBuffer();
+    const res = await window.mammoth.extractRawText({ arrayBuffer: ab });
+    return texto(res.value || "");
+  }
+  const raw = await fileOrBlob.text();
+  if (/<html|<table|<body|<p\b/i.test(raw)) {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    return texto((doc.body && doc.body.innerText) || (doc.body && doc.body.textContent) || "");
+  }
+  // Si es binario antiguo .doc (OLE2), avisar amablemente
+  if (/[\x00-\x08\x0E-\x1F]/.test(raw.slice(0, 500))) {
+    throw new Error("Este archivo es un .doc antiguo (formato binario Word 97-2003). Ábrelo en Word, guárdalo como .docx y vuelve a subirlo para que Gemini pueda leerlo completo.");
+  }
+  return texto(raw);
+}
+
+function formatearJsonDCaTexto(d) {
+  if (!d) return "";
+  const l = arr => Array.isArray(arr) && arr.length ? arr.map((x, i) => `${i + 1}. ${x}`).join("\n") : "N/A";
+  const inter = arr => Array.isArray(arr) && arr.length ? arr.map(r => `- ${r.area}: ${r.finalidad} (${r.alcance})`).join("\n") : "N/A";
+  return `DENOMINACIÓN: ${d.denominacion || ""}
+DIRECCIÓN: ${d.direccion_gerencia || ""}
+SUPERVISOR INMEDIATO: ${d.supervisor_inmediato || ""}
+CARGOS QUE REPORTAN: ${d.cargos_reportan || "N/A"}
+
+PROPÓSITO GENERAL:
+${d.proposito_general || ""}
+
+ES RESPONSABLE DE:
+${l(d.responsable_de)}
+
+ES INFORMADO DE:
+${l(d.informado_de)}
+
+ES APROBADOR DE:
+${l(d.aprobador_de)}
+
+ES SOPORTE DE:
+${l(d.soporte_de)}
+
+INTERACCIONES INTERNAS:
+${inter(d.interacciones_internas)}
+
+INTERACCIONES EXTERNAS:
+${inter(d.interacciones_externas)}
+
+PERFIL DEL CARGO:
+- Grado de instrucción: ${d.grado_instruccion || ""}
+- Experiencia efectiva: ${d.experiencia_efectiva || ""}
+- Certificaciones: ${d.certificaciones || ""}
+- Complejidad del conocimiento: ${d.complejidad_conocimiento || ""}
+- Exigencia cognitiva:\n${l(d.exigencia_cognitiva)}
+- Retos estratégicos:\n${l(d.retos_estrategicos)}
+- Problemas claves:\n${l(d.problemas_claves)}
+- Entorno:\n${l(d.entorno)}
+
+AUTORIDAD Y AUTONOMÍA:
+${l(d.autoridad_autonomia)}
+
+OTROS ROLES:
+${l(d.otros_roles)}`;
+}
+
+function modalAlojarWordEnPuesto(file, contenidoJson = null, preTipo = null, preId = null) {
+  const todos = [
+    ...PUESTOS.map(p => ({ tipo: "actual", p })),
+    ...PUESTOS_ASP.map(p => ({ tipo: "aspiracional", p }))
+  ];
+  const el = modal(`<h2>Alojar Word en un puesto</h2>
+    <p class="nota-h">Elige en qué puesto quieres guardar <b>${esc(file.name)}</b>. Si ese puesto forma parte de un grupo de cargos iguales (🔗 Match), se actualizará automáticamente en todos los puestos del grupo.</p>
+    <label class="f">Puesto destino</label>
+    <select id="alSel" style="margin-bottom:8px">
+      <optgroup label="Estructura Actual">
+        ${PUESTOS.map(p => `<option value="actual:${p.id}" ${preTipo === "actual" && preId === p.id ? "selected" : ""}>${esc(p.cargo)}${titularPuesto(p) ? " · " + esc(titularPuesto(p)) : " (Vacante)"}</option>`).join("")}
+      </optgroup>
+      <optgroup label="Estructura Aspiracional">
+        ${PUESTOS_ASP.map(p => `<option value="aspiracional:${p.id}" ${preTipo === "aspiracional" && preId === p.id ? "selected" : ""}>${esc(p.cargo)}${titularPuesto(p) ? " · " + esc(titularPuesto(p)) : " (Vacante)"}</option>`).join("")}
+      </optgroup>
+    </select>
+    <div class="err" id="alErr"></div>
+    <div class="fila" style="justify-content:flex-end;margin-top:14px"><button class="btn sec" id="alNo">Cancelar</button><button class="btn" id="alOk">Guardar en este puesto</button></div>`, 540);
+  el.querySelector("#alNo").onclick = cerrarModal;
+  el.querySelector("#alOk").onclick = async () => {
+    const val = el.querySelector("#alSel").value; if (!val) return;
+    const [tipo, pid] = val.split(":");
+    el.querySelector("#alOk").setAttribute("aria-disabled", "true");
+    el.querySelector("#alErr").textContent = "Subiendo y vinculando…";
+    try {
+      await subirArchivoDC(tipo, pid, file, contenidoJson);
+      await cargarEquipo();
+      cerrarModal();
+      estado("Descripción alojada en el puesto");
+      if (S.vista === "dc") vistaModuloDC($("main"));
+    } catch (e) {
+      el.querySelector("#alOk").removeAttribute("aria-disabled");
+      el.querySelector("#alErr").textContent = "No se pudo alojar: " + mensajeError(e);
+    }
+  };
+}
+
+async function abrirDCenLaboratorio(tipo, puestoId) {
+  const arr = tipo === "aspiracional" ? PUESTOS_ASP : PUESTOS;
+  const p = arr.find(x => x.id === puestoId); if (!p) return;
+  const dc = dcDe(tipo, puestoId);
+  DCLAB.tab = "lab";
+  DCLAB.cargo = p.cargo;
+  DCLAB.nivel = p.nivel_id || "B4";
+  DCLAB.origenTipo = tipo;
+  DCLAB.origenPuestoId = p.id;
+  DCLAB.ultimoDoc = dc && dc.contenido_json ? dc.contenido_json : null;
+  DCLAB.ultimoFile = null;
+  DCLAB.archivoNombre = dc ? (dc.archivo_nombre || "") : "";
+  DCLAB.textoBase = "";
+  DCLAB.msgs = [];
+
+  if (dc) {
+    estado("Cargando descripción en el Laboratorio…");
+    try {
+      if (dc.contenido_json) {
+        DCLAB.textoBase = formatearJsonDCaTexto(dc.contenido_json);
+      } else if (dc.archivo_path) {
+        const { data, error } = await sb.storage.from("descripciones_cargo").download(dc.archivo_path);
+        if (error) throw error;
+        DCLAB.textoBase = await leerTextoWord(data, dc.archivo_nombre);
+      }
+      if (DCLAB.textoBase) {
+        DCLAB.msgs.push({
+          role: "user",
+          text: `Cargué la Descripción de Cargo existente de "${p.cargo}" (${dc.archivo_nombre || "Word"}):\n\n${DCLAB.textoBase.slice(0, 14000)}\n\nConfírmame que la leíste y dime qué podemos hacer con ella (valorarla en G13–G26, nutrirla, bajarla de banda o pulirla).`,
+          resumenVisual: `📄 Descripción cargada desde inventario: ${dc.archivo_nombre || p.cargo} (${DCLAB.textoBase.length.toLocaleString("es-VE")} caracteres)`
+        });
+      }
+      estado("");
+    } catch (e) {
+      estado("");
+      DCLAB.msgs.push({ role: "model", text: `⚠️ No pude extraer el texto automáticamente de ${dc.archivo_nombre}: ${e.message || e}\n\nPuedes subir una versión en .docx o pegar el texto aquí en el chat.` });
+    }
+  }
+  vistaModuloDC($("main"));
+}
+
+function vistaModuloDC(m) {
+  if (!DC_TABLA_OK) {
+    m.innerHTML = `<h1>Descripciones de Cargo</h1><div class="panel" style="max-width:720px"><h2>Falta activar las tablas en Supabase</h2><p class="nota-h">Ejecuta <b>supabase_modulo2_descripciones.sql</b> en Supabase y recarga la página.</p></div>`;
+    return;
+  }
+  const tab = DCLAB.tab || "inventario";
+  const pestanas = `<div class="pestanas no-print" id="dcModTabs">
+    <button data-dct="inventario" class="${tab === "inventario" ? "on" : ""}">1. Inventario de Descripciones</button>
+    <button data-dct="lab" class="${tab === "lab" ? "on" : ""}">2. ✨ Laboratorio de DC (Word + Gemini)</button>
+  </div>`;
+
+  if (tab === "lab") return vistaLaboratorioDC(m, pestanas);
+
+  // Inventario unificado (Actual + Aspiracional)
+  const todos = [
+    ...PUESTOS.map(p => ({ tipo: "actual", p, dc: dcDe("actual", p.id) })),
+    ...PUESTOS_ASP.map(p => ({ tipo: "aspiracional", p, dc: dcDe("aspiracional", p.id) }))
+  ];
+  const conDC = todos.filter(x => x.dc).length;
+  const sinDC = todos.length - conDC;
+  const gruposActivos = new Set(todos.map(x => x.p.grupo_dc_id).filter(Boolean)).size;
+
+  const q = limpiar(DCLAB.busq);
+  const filtrados = todos.filter(x => {
+    if (DCLAB.filtro === "condc" && !x.dc) return false;
+    if (DCLAB.filtro === "pend" && x.dc) return false;
+    if (DCLAB.filtro === "actual" && x.tipo !== "actual") return false;
+    if (DCLAB.filtro === "aspiracional" && x.tipo !== "aspiracional") return false;
+    if (q) {
+      const txt = limpiar(`${x.p.cargo} ${titularPuesto(x.p)} ${x.dc ? x.dc.archivo_nombre : ""}`);
+      if (!txt.includes(q)) return false;
+    }
+    return true;
+  }).sort((a, b) => a.tipo.localeCompare(b.tipo) || ((nivel(a.p.nivel_id) || {}).orden || 99) - ((nivel(b.p.nivel_id) || {}).orden || 99) || a.p.cargo.localeCompare(b.p.cargo, "es"));
+
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Descripciones de Cargo</h1><p class="sub" style="margin-bottom:14px">Inventario centralizado y laboratorio para valorar (G13–G26), nutrir o redactar descripciones en Word sin tocar el organigrama.</p></div>
+      <div class="fila no-print" style="margin-bottom:14px">
+        <button class="btn sec" id="dcModMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>
+        <button class="btn" id="dcModNuevoLab" style="background:var(--accent)">✨ Abrir Laboratorio libre</button>
+      </div>
+    </div>
+    ${pestanas}
+    <div class="franja">
+      <div><div class="v">${todos.length}</div><div class="l">Posiciones totales (Act + Asp)</div></div>
+      <div><div class="v" style="color:var(--ok)">${conDC}</div><div class="l">Con Descripción cargada</div></div>
+      <div><div class="v" style="color:${sinDC ? "var(--warn)" : "var(--ok)"}">${sinDC}</div><div class="l">Pendientes por cargar</div></div>
+      <div><div class="v">${gruposActivos}</div><div class="l">Grupos con DC compartida (🔗)</div></div>
+    </div>
+    <div class="panel">
+      <div class="fila" style="justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap">
+        <div class="toggle" id="dcInvFilt">
+          <button data-f="todos" class="${DCLAB.filtro === "todos" ? "on" : ""}">Todos (${todos.length})</button>
+          <button data-f="condc" class="${DCLAB.filtro === "condc" ? "on" : ""}">Con DC (${conDC})</button>
+          <button data-f="pend" class="${DCLAB.filtro === "pend" ? "on" : ""}">Pendientes (${sinDC})</button>
+          <button data-f="actual" class="${DCLAB.filtro === "actual" ? "on" : ""}">Actual</button>
+          <button data-f="aspiracional" class="${DCLAB.filtro === "aspiracional" ? "on" : ""}">Aspiracional</button>
+        </div>
+        <input type="text" id="dcInvBusq" value="${esc(DCLAB.busq)}" placeholder="Buscar por cargo, persona o archivo…" style="max-width:280px;padding:7px 11px;font-size:13px">
+      </div>
+      <div class="matriz"><table class="vadm">
+        <tr><th>Estructura</th><th>Cargo y ocupante</th><th>Descripción de Cargo</th><th class="num">Acciones</th></tr>
+        ${filtrados.map(({ tipo, p, dc }) => {
+          const tit = titularPuesto(p), comps = companerosGrupo(tipo, p);
+          return `<tr>
+            <td style="white-space:nowrap"><span class="vtag ${tipo === "actual" ? "ok" : "info"}">${tipo === "actual" ? "Actual" : "Aspiracional"}</span></td>
+            <td><b>${esc(p.cargo)}</b><div style="font-size:12px;color:var(--ink-3)">${tit ? esc(tit) : "Vacante"} · ${esc((nivel(p.nivel_id) || {}).nombre || p.nivel_id || "")}${comps.length ? ` · <span style="color:var(--accent)">🔗 Comparte con ${comps.length}</span>` : ""}</div></td>
+            <td>${dc ? `<span class="vtag ok">📄 ${esc(dc.archivo_nombre || "Word")}</span>` : `<span class="vtag warn">Pendiente</span>`}</td>
+            <td class="num" style="white-space:nowrap">
+              ${dc && dc.archivo_path ? `<button class="btn sec" style="padding:5px 9px;font-size:12px" data-idown="${tipo}:${p.id}">Descargar</button> ` : ""}
+              <button class="btn sec" style="padding:5px 9px;font-size:12px" data-iup="${tipo}:${p.id}">${dc ? "Reemplazar" : "Subir Word"}</button>
+              <button class="btn" style="padding:5px 10px;font-size:12px;background:var(--accent)" data-ilab="${tipo}:${p.id}">✨ ${dc ? "Nutrir / Valorar" : "Crear en Lab"}</button>
+            </td>
+          </tr>`;
+        }).join("") || `<tr><td colspan="4" class="vacio">No hay puestos que coincidan con ese filtro.</td></tr>`}
+      </table></div>
+      <input type="file" id="dcInvFile" accept=".doc,.docx,.pdf" hidden>
+    </div>`;
+
+  $("dcModTabs").onclick = e => { const b = e.target.closest("[data-dct]"); if (b) { DCLAB.tab = b.dataset.dct; vistaModuloDC(m); } };
+  $("dcModMan").onclick = () => modalManualesDC();
+  $("dcModNuevoLab").onclick = () => {
+    DCLAB.tab = "lab"; DCLAB.cargo = ""; DCLAB.nivel = "B4"; DCLAB.bandaObj = "";
+    DCLAB.origenTipo = null; DCLAB.origenPuestoId = null; DCLAB.archivoNombre = "";
+    DCLAB.textoBase = ""; DCLAB.msgs = []; DCLAB.ultimoDoc = null; DCLAB.ultimoFile = null;
+    vistaModuloDC(m);
+  };
+  $("dcInvFilt").onclick = e => { const b = e.target.closest("[data-f]"); if (b) { DCLAB.filtro = b.dataset.f; vistaModuloDC(m); } };
+  $("dcInvBusq").oninput = e => { DCLAB.busq = e.target.value; vistaModuloDC(m); };
+  m.querySelectorAll("[data-idown]").forEach(b => b.onclick = () => {
+    const [t, id] = b.dataset.idown.split(":");
+    descargarArchivoDC(dcDe(t, id));
+  });
+  let upTarget = null;
+  m.querySelectorAll("[data-iup]").forEach(b => b.onclick = () => { upTarget = b.dataset.iup; $("dcInvFile").click(); });
+  $("dcInvFile").onchange = async e => {
+    const f = e.target.files[0]; if (!f || !upTarget) return;
+    const [t, id] = upTarget.split(":");
+    estado("Subiendo Word…");
+    try { await subirArchivoDC(t, id, f); await cargarEquipo(); vistaModuloDC(m); estado("Word actualizado"); } catch (ex) { alert("No se subió: " + mensajeError(ex)); }
+  };
+  m.querySelectorAll("[data-ilab]").forEach(b => b.onclick = () => {
+    const [t, id] = b.dataset.ilab.split(":");
+    abrirDCenLaboratorio(t, id);
+  });
+}
+
+function vistaLaboratorioDC(m, pestanas) {
+  m.innerHTML = `<div class="fila" style="justify-content:space-between;align-items:flex-start;gap:16px">
+      <div><h1>Descripciones de Cargo</h1><p class="sub" style="margin-bottom:14px">Laboratorio libre: sube un Word (.docx), parte de una descripción del inventario o diseña un cargo desde cero con Gemini AI (metodología G13–G26).</p></div>
+      <div class="fila no-print" style="margin-bottom:14px">
+        <button class="btn sec" id="dcModMan">Manuales DC (${MANUALES.filter(x => x.activo).length})</button>
+        <button class="btn sec" id="labLimpiar">Limpiar taller</button>
+      </div>
+    </div>
+    ${pestanas}
+    <div class="panel" style="padding:18px 20px">
+      <div class="dos" style="gap:12px;margin-bottom:12px">
+        <div>
+          <label class="f" style="margin-top:0">Denominación del cargo</label>
+          <input type="text" id="labCargo" value="${esc(DCLAB.cargo)}" placeholder="Ej.: Especialista de Analítica Comercial">
+        </div>
+        <div class="dos" style="gap:10px">
+          <div>
+            <label class="f" style="margin-top:0">Nivel / Banda objetivo</label>
+            <select id="labBanda">
+              <option value="" ${!DCLAB.bandaObj ? "selected" : ""}>Sin definir (que Gemini valore)</option>
+              <option value="Banda 5 (G13-G15)" ${DCLAB.bandaObj === "Banda 5 (G13-G15)" ? "selected" : ""}>Banda 5 (G13–G15 · Analista)</option>
+              <option value="Banda 4 (G16-G17)" ${DCLAB.bandaObj === "Banda 4 (G16-G17)" ? "selected" : ""}>Banda 4 (G16–G17 · Especialista)</option>
+              <option value="Banda 4+ (G18-G19)" ${DCLAB.bandaObj === "Banda 4+ (G18-G19)" ? "selected" : ""}>Banda 4+ (G18–G19 · Gerente Inicial)</option>
+              <option value="Banda 3 Base (G20-G21)" ${DCLAB.bandaObj === "Banda 3 Base (G20-G21)" ? "selected" : ""}>Banda 3 Base (G20–G21 · Gerente)</option>
+              <option value="Banda 3 Alta (G22-G23)" ${DCLAB.bandaObj === "Banda 3 Alta (G22-G23)" ? "selected" : ""}>Banda 3 Alta (G22–G23 · Gte. Senior)</option>
+              <option value="Banda 2 (G24-G25)" ${DCLAB.bandaObj === "Banda 2 (G24-G25)" ? "selected" : ""}>Banda 2 (G24–G25 · Director)</option>
+              <option value="Banda 1 (G26)" ${DCLAB.bandaObj === "Banda 1 (G26)" ? "selected" : ""}>Banda 1 (G26 · Dir. Corporativo)</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button type="button" class="btn sec" id="labSubirWord" style="width:100%;text-align:center;padding:9px 10px">📤 Subir Word (.docx)</button>
+            <input type="file" id="labFile" accept=".docx,.doc,.txt" hidden>
+          </div>
+        </div>
+      </div>
+      ${DCLAB.archivoNombre ? `<div class="aviso ok" style="display:block;margin-bottom:10px">📄 Documento cargado en el taller: <b>${esc(DCLAB.archivoNombre)}</b>${DCLAB.origenTipo ? ` (desde Estructura ${DCLAB.origenTipo === "actual" ? "Actual" : "Aspiracional"})` : ""}</div>` : ""}
+      <div class="dc-chat" id="labChat" style="max-height:44vh"></div>
+      <div class="sim-chips" id="labChips">
+        <button type="button" class="sim-chip" data-lq="Valora esta Descripción de Cargo aplicando nuestra metodología (Banda y Grado G13–G26, Short Profile, desglose por factores y alertas de rechazo de Gestión de Gente).">Valorar (G13–G26)</button>
+        <button type="button" class="sim-chip" data-lq="Detecta si este cargo está sobredimensionado o subdimensionado y dime qué ajustes concretos (Antes -> Después) debo hacer.">Detectar brechas</button>
+        <button type="button" class="sim-chip" data-lq="Nutre y fortalece esta Descripción de Cargo para justificar la banda objetivo seleccionada, respetando verbos, RASIE y autonomía.">Nutrir / Subir banda</button>
+        <button type="button" class="sim-chip" data-lq="Ajusta y simplifica esta Descripción de Cargo para bajarla de banda sin perder coherencia ni generar alertas de RRHH.">Bajar de banda</button>
+      </div>
+      <div class="fila" style="flex-wrap:nowrap;gap:8px">
+        <input type="text" id="labIn" placeholder="Pide a Gemini valorar, nutrir, ajustar responsabilidades o redactar un cargo nuevo…">
+        <button class="btn" id="labSend" style="white-space:nowrap">Enviar</button>
+      </div>
+      <div class="err" id="labErr"></div>
+      <div class="fila" style="justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);gap:8px;flex-wrap:wrap">
+        <div class="fila" style="gap:8px">
+          <button type="button" class="btn" id="labGenWord" style="background:var(--ok)">📄 Generar y descargar Word (.doc)</button>
+          <button type="button" class="btn sec" id="labAlojar" ${!DCLAB.ultimoFile ? 'style="opacity:.6"' : ""}>💾 Alojar en puesto…</button>
+          <button type="button" class="btn sec" id="labSubirMod">📤 Subir Word modificado y alojar</button>
+          <input type="file" id="labFileMod" accept=".doc,.docx,.pdf" hidden>
+        </div>
+        <button type="button" class="btn sec" id="labASim" style="color:var(--accent);border-color:var(--accent)">🚀 Enviar caja al Simulador</button>
+      </div>
+    </div>`;
+
+  $("dcModTabs").onclick = e => { const b = e.target.closest("[data-dct]"); if (b) { DCLAB.tab = b.dataset.dct; vistaModuloDC(m); } };
+  $("dcModMan").onclick = () => modalManualesDC();
+  $("labLimpiar").onclick = () => {
+    DCLAB.cargo = ""; DCLAB.bandaObj = ""; DCLAB.origenTipo = null; DCLAB.origenPuestoId = null;
+    DCLAB.archivoNombre = ""; DCLAB.textoBase = ""; DCLAB.msgs = []; DCLAB.ultimoDoc = null; DCLAB.ultimoFile = null;
+    vistaModuloDC(m);
+  };
+  $("labCargo").oninput = e => DCLAB.cargo = e.target.value;
+  $("labBanda").onchange = e => DCLAB.bandaObj = e.target.value;
+
+  const chatEl = $("labChat"), errEl = $("labErr"), inp = $("labIn"), sendBtn = $("labSend");
+  const pintarLab = () => {
+    if (!DCLAB.msgs.length) {
+      chatEl.innerHTML = `<div class="dc-msg m">Hola ${esc(primerNombre(YO.nombre))}. Este es tu <b>Laboratorio de Descripciones de Cargo</b>. Puedes:\n• Subir cualquier archivo Word (<b>.docx</b>) para que lo valore en G13–G26 y lo pulamos juntos.\n• Escribir el nombre de un cargo nuevo y construir su descripción desde cero.\n• Al terminar, descargar el <b>Word oficial de Empresas Polar</b>, alojarlo en cualquier puesto o enviarlo como caja al Simulador.</div>`;
+      return;
+    }
+    chatEl.innerHTML = DCLAB.msgs.map(x => `<div class="dc-msg ${x.role === "user" ? "u" : "m"}">${esc(x.resumenVisual || x.text)}</div>`).join("");
+    chatEl.scrollTop = chatEl.scrollHeight;
+  };
+  const ctxLab = () => ({
+    cargo: texto(DCLAB.cargo) || "Cargo en diseño",
+    nivel: DCLAB.bandaObj || (nivel(DCLAB.nivel) || {}).nombre || "Por definir",
+    estructura: DCLAB.origenTipo || "actual",
+    supervisor: "Dirección de Innovación, Estrategia y Nuevos Negocios",
+    reportes: "N/A"
+  });
+  async function enviarLab(txtUsuario) {
+    const t = texto(txtUsuario != null ? txtUsuario : inp.value);
+    if (!t) return;
+    inp.value = "";
+    const prefijoBanda = DCLAB.bandaObj ? `[Banda objetivo seleccionada: ${DCLAB.bandaObj}] ` : "";
+    DCLAB.msgs.push({ role: "user", text: prefijoBanda + t, resumenVisual: t });
+    pintarLab();
+    errEl.textContent = "Gemini está analizando…";
+    sendBtn.setAttribute("aria-disabled", "true");
+    try {
+      const { data, error } = await sb.functions.invoke("descripcion-ia", {
+        body: { accion: "chat", puesto: ctxLab(), mensajes: DCLAB.msgs.map(x => ({ role: x.role, text: x.text })) }
+      });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "No respondió la función descripcion-ia.");
+      errEl.textContent = "";
+      DCLAB.msgs.push({ role: "model", text: data.respuesta });
+      pintarLab();
+    } catch (e) { errEl.textContent = e.message || String(e); }
+    finally { if (sendBtn.isConnected) sendBtn.removeAttribute("aria-disabled"); }
+  }
+
+  $("labSubirWord").onclick = () => $("labFile").click();
+  $("labFile").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    errEl.textContent = "Leyendo documento Word…";
+    try {
+      const txt = await leerTextoWord(f, f.name);
+      if (!txt) throw new Error("El archivo parece estar vacío.");
+      DCLAB.archivoNombre = f.name;
+      DCLAB.textoBase = txt;
+      DCLAB.ultimoFile = f;
+      if (!DCLAB.cargo) DCLAB.cargo = f.name.replace(/\.(docx?|txt)$/i, "").replace(/^(dc|descripci[oó]n de cargo)[\s\-_]*/i, "").trim();
+      DCLAB.msgs.push({
+        role: "user",
+        text: `Subí el archivo "${f.name}" con esta Descripción de Cargo:\n\n${txt.slice(0, 14000)}\n\nPor favor valora este cargo según nuestra metodología (Banda y Grado G13–G26) y dime qué brechas o oportunidades de mejora detectas.`,
+        resumenVisual: `📤 Archivo subido al Laboratorio: ${f.name} (${txt.length.toLocaleString("es-VE")} caracteres)`
+      });
+      vistaModuloDC(m);
+      // Disparar análisis automático de Gemini
+      errEl.textContent = "Gemini está leyendo y valorando tu Word…";
+      const { data, error } = await sb.functions.invoke("descripcion-ia", {
+        body: { accion: "chat", puesto: ctxLab(), mensajes: DCLAB.msgs.map(x => ({ role: x.role, text: x.text })) }
+      });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "No respondió Gemini.");
+      DCLAB.msgs.push({ role: "model", text: data.respuesta });
+      vistaModuloDC(m);
+    } catch (ex) { errEl.textContent = ex.message || String(ex); }
+  };
+
+  $("labGenWord").onclick = async () => {
+    if (!DCLAB.msgs.length && !DCLAB.cargo) return (errEl.textContent = "Escribe el nombre del cargo o conversa primero con Gemini.");
+    errEl.textContent = "Generando Word oficial con formato Empresas Polar…";
+    $("labGenWord").setAttribute("aria-disabled", "true");
+    try {
+      const { data, error } = await sb.functions.invoke("descripcion-ia", {
+        body: { accion: "generar", puesto: ctxLab(), mensajes: DCLAB.msgs.map(x => ({ role: x.role, text: x.text })) }
+      });
+      let msg = data && data.error;
+      if (error) { try { msg = (await error.context.json()).error; } catch (x) { msg = mensajeError(error); } }
+      if (msg || !data || !data.ok) throw new Error(msg || "No se pudo generar el Word.");
+      errEl.textContent = "";
+      const blob = construirWordPolar(data.doc);
+      const nom = `DC_${limpiar(data.doc.denominacion || DCLAB.cargo || "cargo").replace(/[^a-z0-9]+/g, "_").slice(0, 45)}.doc`;
+      DCLAB.ultimoDoc = data.doc;
+      DCLAB.ultimoFile = new File([blob], nom, { type: "application/msword" });
+      DCLAB.archivoNombre = nom;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = nom; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      DCLAB.msgs.push({ role: "model", text: `✅ Word oficial generado y descargado: ${nom}. Ahora puedes pulsar "Alojar en puesto…" para guardarlo en Actual/Aspiracional, o editarlo en Word y subirlo modificado.` });
+      estado("Word generado y descargado");
+      vistaModuloDC(m);
+    } catch (e) { errEl.textContent = e.message || String(e); }
+    finally { if ($("labGenWord")) $("labGenWord").removeAttribute("aria-disabled"); }
+  };
+
+  $("labAlojar").onclick = () => {
+    if (!DCLAB.ultimoFile) return (errEl.textContent = "Primero genera el Word o sube un archivo modificado.");
+    modalAlojarWordEnPuesto(DCLAB.ultimoFile, DCLAB.ultimoDoc, DCLAB.origenTipo, DCLAB.origenPuestoId);
+  };
+  $("labSubirMod").onclick = () => $("labFileMod").click();
+  $("labFileMod").onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    DCLAB.ultimoFile = f;
+    modalAlojarWordEnPuesto(f, DCLAB.ultimoDoc, DCLAB.origenTipo, DCLAB.origenPuestoId);
+  };
+  $("labASim").onclick = () => {
+    const nomCargo = texto(DCLAB.cargo) || (DCLAB.ultimoDoc && DCLAB.ultimoDoc.denominacion) || "Nuevo cargo";
+    const prop = { cargo: nomCargo, nivel_id: DCLAB.nivel || "B4", reporta_a_cargo: (DCLAB.ultimoDoc && DCLAB.ultimoDoc.supervisor_inmediato) || "", en_proceso: true };
+    S.vista = "estructura";
+    llevarConversacionASimulacion("actual", prop);
+  };
+
+  sendBtn.onclick = () => enviarLab();
+  inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); enviarLab(); } };
+  $("labChips").onclick = e => { const b = e.target.closest("[data-lq]"); if (b) enviarLab(b.dataset.lq); };
+  pintarLab();
+}
+
 function modalNiveles() {
   const el = modal(`<h2>Niveles y permisos</h2><p class="nota-h">Qué permite cada nivel. El nivel de cada persona sale del puesto que ocupa. Quién ve la estructura se decide persona por persona (en su ficha). Tú, como super-admin, siempre puedes todo.</p>
     <table class="vmov"><tr><th>Nivel</th><th style="text-align:center">Gestiona proyectos</th><th style="text-align:center">Acumula días oficiales</th></tr>
@@ -2575,7 +3104,7 @@ function armar() {
       <button class="nav" data-v="equipo">Todo el equipo<span class="cnt">${PERSONAS.filter(p => p.activo !== false).length}</span></button>
       <div class="grupo">Equipo</div>
       <button class="nav" data-v="proyectos">Proyectos</button>
-      ${PERM.estructura ? `<button class="nav" data-v="estructura">Estructura</button>` : ""}
+      ${PERM.estructura ? `<button class="nav" data-v="estructura">Estructura</button><button class="nav" data-v="dc">Descripciones de Cargo</button>` : ""}
       ${soyAdmin() ? `<div class="grupo">Administración</div><button class="nav" data-v="admin">Personas y accesos</button>` : ""}
       <div class="pie"><span id="estadoGuardado"></span><span class="correo" title="${esc(usuario.email)}">${esc(usuario.email)}</span><button data-v="clave">Cambiar clave</button><button id="bSalir">Cerrar sesión</button></div>
     </aside><div><main id="main"></main></div></div>`;
@@ -2585,7 +3114,7 @@ function armar() {
 }
 function pintar() {
   cerrarModal();
-  if ((S.vista === "admin" && !soyAdmin()) || (S.vista === "estructura" && !PERM.estructura) || S.vista === "org") S.vista = "mias";
+  if ((S.vista === "admin" && !soyAdmin()) || ((S.vista === "estructura" || S.vista === "dc") && !PERM.estructura) || S.vista === "org") S.vista = "mias";
   document.querySelectorAll("aside [data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === S.vista));
   const m = $("main");
   m.classList.toggle("ancho-full", S.vista === "estructura");
@@ -2593,6 +3122,7 @@ function pintar() {
   else if (S.vista === "admin") vistaAdmin(m);
   else if (S.vista === "proyectos") vistaProyectos(m);
   else if (S.vista === "estructura") vistaEstructura(m);
+  else if (S.vista === "dc") vistaModuloDC(m);
   else if (S.vista === "clave") pantallaClave(false);
   else vistaMias(m);
   window.scrollTo(0, 0);
